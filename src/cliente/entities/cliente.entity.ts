@@ -1,5 +1,6 @@
 import { Column, CreateDateColumn, Entity, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
 import { Proyecto } from "src/proyecto/entities/proyecto.entity";
+import { AuditoriaCliente } from "src/auditoria-cliente/entities/auditoria-cliente.entity";
 
 @Entity()
 export class Cliente {
@@ -28,6 +29,8 @@ export class Cliente {
     estado: string;
 
     // Relaciones
+    @OneToMany(() => AuditoriaCliente, auditoriaCliente => auditoriaCliente.idCliente)
+    auditoriasCliente: AuditoriaCliente[];
 
     // Proyectos asociados al cliente
     @OneToMany(() => Proyecto, proyecto => proyecto.idCliente)
