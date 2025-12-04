@@ -1,6 +1,14 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { envs } from './config';
+import { ProyectoModule } from './proyecto/proyecto.module';
+import { ClienteModule } from './cliente/cliente.module';
+import { AsesoriaTecnicaModule } from './asesoria-tecnica/asesoria-tecnica.module';
+import { EvidenciaImagenModule } from './evidencia-imagen/evidencia-imagen.module';
+import { AuditoriaClienteModule } from './auditoria-cliente/auditoria-cliente.module';
+import { RequisitoModule } from './requisito/requisito.module';
+import { OportunidadModule } from './oportunidad/oportunidad.module';
+import { OportunidadRequisitoModule } from './oportunidad-requisito/oportunidad-requisito.module';
 
 
 @Module({
@@ -16,6 +24,14 @@ import { envs } from './config';
       synchronize: envs.nodeEnv !== 'production',
       autoLoadEntities: true,
     }),
+    ProyectoModule,
+    ClienteModule,
+    AsesoriaTecnicaModule,
+    EvidenciaImagenModule,
+    AuditoriaClienteModule,
+    RequisitoModule,
+    OportunidadModule,
+    OportunidadRequisitoModule,
   ],
   controllers: [],
   providers: [],
