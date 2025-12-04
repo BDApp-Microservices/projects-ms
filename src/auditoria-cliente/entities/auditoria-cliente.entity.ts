@@ -1,1 +1,6 @@
-export class AuditoriaCliente {}
+import { Entity } from "typeorm";
+
+@Entity()
+export class AuditoriaCliente {
+
+}

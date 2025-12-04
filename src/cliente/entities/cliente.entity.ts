@@ -1,7 +1,8 @@
-import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
+import { Column, CreateDateColumn, Entity, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
+import { Proyecto } from "src/proyecto/entities/proyecto.entity";
 
 @Entity()
-export class Cliente { 
+export class Cliente {
     @PrimaryGeneratedColumn('uuid', { name: 'id_cliente' })
     idCliente: string;
 
@@ -26,9 +27,15 @@ export class Cliente {
     @Column('varchar', { name: 'estado', length: 50 })
     estado: string;
 
+    // Relaciones
+
+    // Proyectos asociados al cliente
+    @OneToMany(() => Proyecto, proyecto => proyecto.idCliente)
+    proyectos: Proyecto[];
+
     @CreateDateColumn({ name: 'fecha_creacion' })
     fechaCreacion: Date;
-    
+
     @UpdateDateColumn({ name: 'fecha_actualizacion' })
     fechaActualizacion: Date;
 }

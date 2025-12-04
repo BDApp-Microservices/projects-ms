@@ -1,1 +1,49 @@
-export class Proyecto {}
+import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
+import { AsesoriaTecnica } from "src/asesoria-tecnica/entities/asesoria-tecnica.entity";
+import { Cliente } from "src/cliente/entities/cliente.entity";
+
+@Entity()
+export class Proyecto {
+    @PrimaryGeneratedColumn('uuid', { name: 'id_proyecto' })
+    idProyecto: string;
+
+    @Column('varchar', { name: 'nombre', length: 100 })
+    nombre: string;
+
+    @Column('varchar', { name: 'suf', length: 50 })
+    suf: string;
+
+    @Column('varchar', { name: 'codigo', length: 5 })
+    codigo: string;
+
+    @Column('date', { name: 'fecha_tentativa' })
+    fechaTentativa: Date;
+
+    @Column('boolean', { name: 'esta_activo' })
+    estaActivo: boolean;
+
+    @Column('int', { name: 'total_pisos' })
+    totalPisos: number;
+
+    // Relaciones
+
+    // Ingeniero responsable
+
+    // Oficina Tecnica Responsable
+
+    // Cliente al que pertenece el proyecto
+    @ManyToOne(() => Cliente, cliente => cliente.proyectos)
+    @JoinColumn({ name: 'id_cliente', referencedColumnName: 'idCliente' })
+    idCliente: Cliente;
+
+    @OneToMany(() => AsesoriaTecnica, asesoriaTecnica => asesoriaTecnica.idProyecto)
+    asesoriasTecnicas: AsesoriaTecnica[];
+
+    // Fin Relaciones
+
+    @CreateDateColumn({ name: 'fecha_creacion' })
+    fechaCreacion: Date;
+
+    @UpdateDateColumn({ name: 'fecha_actualizacion' })
+    fechaActualizacion: Date;
+}
