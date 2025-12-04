@@ -1,6 +1,7 @@
-import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
+import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn, OneToOne } from "typeorm";
 import { AsesoriaTecnica } from "src/asesoria-tecnica/entities/asesoria-tecnica.entity";
 import { Cliente } from "src/cliente/entities/cliente.entity";
+import { Oportunidad } from "src/oportunidad/entities/oportunidad.entity";
 
 @Entity()
 export class Proyecto {
@@ -36,8 +37,14 @@ export class Proyecto {
     @JoinColumn({ name: 'id_cliente', referencedColumnName: 'idCliente' })
     idCliente: Cliente;
 
+    // Asesorias tecnicas asociadas al proyecto
     @OneToMany(() => AsesoriaTecnica, asesoriaTecnica => asesoriaTecnica.idProyecto)
     asesoriasTecnicas: AsesoriaTecnica[];
+
+    // A que oportunidad pertenece el proyecto
+    @OneToOne(() => Oportunidad, oportunidad => oportunidad.proyecto)
+    @JoinColumn({ name: 'id_oportunidad', referencedColumnName: 'idOportunidad' })
+    idOportunidad: Oportunidad;
 
     // Fin Relaciones
 

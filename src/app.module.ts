@@ -9,6 +9,7 @@ import { AuditoriaClienteModule } from './auditoria-cliente/auditoria-cliente.mo
 import { RequisitoModule } from './requisito/requisito.module';
 import { OportunidadModule } from './oportunidad/oportunidad.module';
 import { OportunidadRequisitoModule } from './oportunidad-requisito/oportunidad-requisito.module';
+import { ReunionModule } from './reunion/reunion.module';
 
 
 @Module({
@@ -32,6 +33,7 @@ import { OportunidadRequisitoModule } from './oportunidad-requisito/oportunidad-
     RequisitoModule,
     OportunidadModule,
     OportunidadRequisitoModule,
+    ReunionModule,
   ],
   controllers: [],
   providers: [],
