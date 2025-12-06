@@ -1,10 +1,10 @@
 import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
-import { Cliente } from "src/cliente/entities/cliente.entity";
+import { Proyecto } from "src/proyecto/entities/proyecto.entity";
 
 @Entity()
-export class AuditoriaCliente {
-    @PrimaryGeneratedColumn('uuid', { name: 'id_auditoria_cliente' })
-    idAuditoriaCliente: string;
+export class AuditoriaProyecto {
+    @PrimaryGeneratedColumn('uuid', { name: 'id_auditoria_proyecto' })
+    idAuditoriaProyecto: string;
 
     @Column('date', { name: 'fecha_baja' })
     fechaBaja: Date;
@@ -18,9 +18,9 @@ export class AuditoriaCliente {
     // Relaciones
 
     // Cliente al que pertenece la auditoria
-    @ManyToOne(() => Cliente, cliente => cliente.auditoriasCliente)
-    @JoinColumn({ name: 'id_cliente', referencedColumnName: 'idCliente' })
-    idCliente: Cliente;
+    @ManyToOne(() => Proyecto, proyecto => proyecto.auditoriasProyecto)
+    @JoinColumn({ name: 'id_proyecto', referencedColumnName: 'idProyecto' })
+    idProyecto: Proyecto;
 
     // Fin Relaciones
 

@@ -2,6 +2,8 @@ import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, OneToMany, Pri
 import { AsesoriaTecnica } from "src/asesoria-tecnica/entities/asesoria-tecnica.entity";
 import { Cliente } from "src/cliente/entities/cliente.entity";
 import { Oportunidad } from "src/oportunidad/entities/oportunidad.entity";
+import { ProyectoRequisito } from "src/proyecto-requisito/entities/proyecto-requisito.entity";
+import { AuditoriaProyecto } from "src/auditoria-proyecto/entities/auditoria-proyecto.entity";
 
 @Entity()
 export class Proyecto {
@@ -45,6 +47,14 @@ export class Proyecto {
     @OneToOne(() => Oportunidad, oportunidad => oportunidad.proyecto)
     @JoinColumn({ name: 'id_oportunidad', referencedColumnName: 'idOportunidad' })
     idOportunidad: Oportunidad;
+
+    // Requisitos asociados al proyecto - Relacion fisica
+    @OneToMany(() => ProyectoRequisito, proyectoRequisito => proyectoRequisito.idProyecto)
+    proyectos: ProyectoRequisito[];
+
+    // Auditorias del proyecto
+    @OneToMany(() => AuditoriaProyecto, auditoriaProyecto => auditoriaProyecto.idProyecto)
+    auditoriasProyecto: AuditoriaProyecto[];
 
     // Fin Relaciones
 

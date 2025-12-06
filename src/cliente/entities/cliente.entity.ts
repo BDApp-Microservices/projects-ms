@@ -1,6 +1,5 @@
 import { Column, CreateDateColumn, Entity, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
 import { Proyecto } from "src/proyecto/entities/proyecto.entity";
-import { AuditoriaCliente } from "src/auditoria-cliente/entities/auditoria-cliente.entity";
 
 @Entity()
 export class Cliente {
@@ -28,9 +27,10 @@ export class Cliente {
     @Column('varchar', { name: 'estado', length: 50 })
     estado: string;
 
+    @Column('varchar', { name: 'tipo_cliente', length: 20, default: 'ANTIGUO' })
+    tipoCliente: string; // 'NUEVO' o 'ANTIGUO'
+
     // Relaciones
-    @OneToMany(() => AuditoriaCliente, auditoriaCliente => auditoriaCliente.idCliente)
-    auditoriasCliente: AuditoriaCliente[];
 
     // Proyectos asociados al cliente
     @OneToMany(() => Proyecto, proyecto => proyecto.idCliente)

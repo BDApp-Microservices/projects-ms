@@ -1,6 +1,5 @@
 import { Column, CreateDateColumn, Entity, OneToMany, PrimaryGeneratedColumn, OneToOne } from "typeorm";
 import { Reunion } from "src/reunion/entities/reunion.entity";
-import { OportunidadRequisito } from "src/oportunidad-requisito/entities/oportunidad-requisito.entity";
 import { Proyecto } from "src/proyecto/entities/proyecto.entity";
 
 @Entity()
@@ -39,10 +38,6 @@ export class Oportunidad {
     // Comercial asociado a la oportunidad - Relacion logica
     @Column('uuid', { name: 'id_comercial' })
     idComercial: string;
-
-    // Requisitos asociados a la oportunidad - Relacion fisica
-    @OneToMany(() => OportunidadRequisito, oportunidadRequisito => oportunidadRequisito.idOportunidad)
-    oportunidades: OportunidadRequisito[];
 
     // Oportunidad relacionada con el proyecto - Relacion fisica
     @OneToOne(() => Proyecto, proyecto => proyecto.idOportunidad)

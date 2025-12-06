@@ -1,5 +1,6 @@
 import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn, UpdateDateColumn, OneToMany } from "typeorm";
-import { OportunidadRequisito } from '../../oportunidad-requisito/entities/oportunidad-requisito.entity';
+import { ProyectoRequisito } from "src/proyecto-requisito/entities/proyecto-requisito.entity";
+
 @Entity()
 export class Requisito {
     @PrimaryGeneratedColumn('uuid', { name: 'id_requisito' })
@@ -21,8 +22,8 @@ export class Requisito {
     activo: boolean;
 
     // Relaciones
-    @OneToMany(() => OportunidadRequisito, oportunidadRequisito => oportunidadRequisito.idRequisito)
-    requisitos: OportunidadRequisito[];
+    @OneToMany(() => ProyectoRequisito, proyectoRequisito => proyectoRequisito.idRequisito)
+    requisitos: ProyectoRequisito[];
 
     @CreateDateColumn({ name: 'fecha_creacion' })
     fechaCreacion: Date;
