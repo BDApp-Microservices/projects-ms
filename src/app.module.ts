@@ -6,10 +6,11 @@ import { ClienteModule } from './cliente/cliente.module';
 import { AsesoriaTecnicaModule } from './asesoria-tecnica/asesoria-tecnica.module';
 import { EvidenciaImagenModule } from './evidencia-imagen/evidencia-imagen.module';
 import { RequisitoModule } from './requisito/requisito.module';
-import { OportunidadModule } from './oportunidad/oportunidad.module';
-import { ReunionModule } from './reunion/reunion.module';
 import { ProyectoRequisitoModule } from './proyecto-requisito/proyecto-requisito.module';
 import { AuditoriaProyectoModule } from './auditoria-proyecto/auditoria-proyecto.module';
+import { ProyeccionModule } from './proyeccion/proyeccion.module';
+import { ProyeccionSemanalModule } from './proyeccion-semanal/proyeccion-semanal.module';
+import { ProyectoProductoModule } from './proyecto-producto/proyecto-producto.module';
 
 
 @Module({
@@ -30,10 +31,11 @@ import { AuditoriaProyectoModule } from './auditoria-proyecto/auditoria-proyecto
     AsesoriaTecnicaModule,
     EvidenciaImagenModule,
     RequisitoModule,
-    OportunidadModule,
-    ReunionModule,
     ProyectoRequisitoModule,
     AuditoriaProyectoModule,
+    ProyeccionModule,
+    ProyeccionSemanalModule,
+    ProyectoProductoModule,
   ],
   controllers: [],
   providers: [],

@@ -19,7 +19,7 @@ export class ProyectoController {
   }
 
   @MessagePattern('findOneProyecto')
-  findOne(@Payload() id: number) {
+  findOne(@Payload() id: string) {
     return this.proyectoService.findOne(id);
   }
 
