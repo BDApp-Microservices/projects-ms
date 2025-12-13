@@ -11,7 +11,7 @@ export class Proyecto {
     @PrimaryGeneratedColumn('uuid', { name: 'id_proyecto' })
     idProyecto: string;
 
-    @Column('varchar', { name: 'proyecto_cup', length: 50, unique: true })
+    @Column('varchar', { name: 'proyecto_cup', length: 50, unique: true, nullable: true })
     proyectoCUP: string;
 
     @Column('varchar', { name: 'nombre', length: 100 })
@@ -29,14 +29,26 @@ export class Proyecto {
     @Column('date', { name: 'fecha_tentativa' })
     fechaTentativa: Date;
 
-    @Column('boolean', { name: 'esta_activo' })
+    @Column('boolean', { name: 'esta_activo', default: false })
     estaActivo: boolean;
 
-    @Column('int', { name: 'total_niveles' })
-    totalNiveles: number;
+    @Column('int', { name: 'pisos', nullable: true })
+    pisos: number;
+
+    @Column('int', { name: 'sotanos', nullable: true })
+    sotanos: number;
+
+    @Column('varchar', { name: 'ubicacion', length: 255, nullable: true })
+    ubicacion: string;
+
+    @Column('varchar', { name: 'numero_contacto', length: 20, nullable: true })
+    numeroContacto: string;
+
+    @Column('varchar', { name: 'nombre_contacto', length: 100, nullable: true })
+    nombreContacto: string;
 
     @Column('varchar', { name: 'estado', length: 50 })
-    estado: string; // 'NEGOCIACIONES', 'CALIENTITO', etc.
+    estado: string; // 'NEGOCIACIONES', 'CALIENTITO', 'CERRADO', 'PERDIDO', 'STAND BY'
 
     // Relaciones
 

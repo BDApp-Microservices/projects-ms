@@ -5,7 +5,7 @@ export class CreateProyectoDto {
 
     @IsString()
     @IsOptional()
-    proyectoCUP: string;
+    proyectoCUP?: string;
 
     @IsString()
     @IsNotEmpty()
@@ -33,7 +33,23 @@ export class CreateProyectoDto {
 
     @IsNumber()
     @IsOptional()
-    totalNiveles?: number;
+    pisos?: number;
+
+    @IsNumber()
+    @IsOptional()
+    sotanos?: number;
+
+    @IsString()
+    @IsOptional()
+    ubicacion?: string;
+
+    @IsString()
+    @IsOptional()
+    numeroContacto?: string;
+
+    @IsString()
+    @IsOptional()
+    nombreContacto?: string;
 
     @IsString()
     @IsNotEmpty()

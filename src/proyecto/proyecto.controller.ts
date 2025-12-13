@@ -1,16 +1,16 @@
 import { Controller } from '@nestjs/common';
 import { MessagePattern, Payload } from '@nestjs/microservices';
 import { ProyectoService } from './proyecto.service';
-import { CreateProyectoDto } from './dto/create-proyecto.dto';
+import { CreateProyectoCompletoDto } from './dto/create-proyecto-completo.dto';
 import { UpdateProyectoDto } from './dto/update-proyecto.dto';
 
 @Controller()
 export class ProyectoController {
-  constructor(private readonly proyectoService: ProyectoService) {}
+  constructor(private readonly proyectoService: ProyectoService) { }
 
-  @MessagePattern('createProyecto')
-  create(@Payload() createProyectoDto: CreateProyectoDto) {
-    return this.proyectoService.create(createProyectoDto);
+  @MessagePattern('proyecto.create.completo')
+  createCompleto(@Payload() createProyectoCompletoDto: CreateProyectoCompletoDto) {
+    return this.proyectoService.createProyectoCompleto(createProyectoCompletoDto);
   }
 
   @MessagePattern('findAllProyecto')
@@ -24,8 +24,16 @@ export class ProyectoController {
   }
 
   @MessagePattern('updateProyecto')
-  update(@Payload() updateProyectoDto: UpdateProyectoDto) {
-    return this.proyectoService.update(updateProyectoDto.id, updateProyectoDto);
+  update(@Payload() payload: { id: string } & UpdateProyectoDto) {
+    const { id, ...updateData } = payload;
+    return this.proyectoService.update(id, updateData);
+  }
+
+  @MessagePattern('updateProyectoProductos')
+  updateProductos(
+    @Payload() payload: { idProyecto: string; productos: Array<{ idProducto: string; cantidad?: number }> },
+  ) {
+    return this.proyectoService.updateProductos(payload.idProyecto, payload.productos);
   }
 
   @MessagePattern('removeProyecto')

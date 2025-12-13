@@ -13,7 +13,23 @@ export class ProyectoProducto {
   })
   cantidad: number;
 
-  @ManyToOne(() => Proyecto, proyecto => proyecto.proyectoProductos )
+  @Column('decimal', {
+    name: 'comision_estimada',
+    precision: 10,
+    scale: 2,
+    default: 0,
+  })
+  comisionEstimada: number;
+
+  @Column('decimal', {
+    name: 'precio_venta',
+    precision: 10,
+    scale: 2,
+    nullable: true,
+  })
+  precioVenta: number;
+
+  @ManyToOne(() => Proyecto, proyecto => proyecto.proyectoProductos)
   @JoinColumn({ name: 'id_proyecto', referencedColumnName: 'idProyecto' })
   idProyecto: string;
 

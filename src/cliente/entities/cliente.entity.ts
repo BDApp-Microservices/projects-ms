@@ -12,20 +12,23 @@ export class Cliente {
     @Column('varchar', { name: 'razon_social', unique: true, length: 100 })
     razonSocial: string;
 
-    @Column('varchar', { name: 'tipo', length: 50, nullable: true, default: 'GENERAL' })
+    @Column('varchar', { name: 'nombre_comercial', length: 100, nullable: true })
+    nombreComercial: string;
+
+    @Column('varchar', { name: 'tipo', length: 50, nullable: true })
     tipo: string;
 
-    @Column('varchar', { name: 'credito', length: 50, nullable: true, default: 'CONTADO' })
+    @Column('varchar', { name: 'credito', length: 50, nullable: true })
     credito: string;
 
-    @Column('varchar', { name: 'condicion', length: 50, nullable: true, default: 'HABILITADO' })
+    @Column('varchar', { name: 'condicion', length: 50, nullable: true })
     condicion: string;
 
-    @Column('varchar', { name: 'datos', length: 255, nullable: true, default: '' })
+    @Column('varchar', { name: 'datos', length: 255, nullable: true })
     datos: string;
 
-    @Column('boolean', { name: 'activo', default: false })
-    activo: boolean;
+    @Column('boolean', { name: 'esta_activo', default: false })
+    estaActivo: boolean;
 
     @Column('varchar', { name: 'tipo_cliente', length: 20, default: 'ANTIGUO' })
     tipoCliente: string; // 'NUEVO' o 'ANTIGUO'
@@ -35,6 +38,8 @@ export class Cliente {
     // Proyectos asociados al cliente
     @OneToMany(() => Proyecto, proyecto => proyecto.idCliente)
     proyectos: Proyecto[];
+
+    // Fin Relaciones
 
     @CreateDateColumn({ name: 'fecha_creacion' })
     fechaCreacion: Date;

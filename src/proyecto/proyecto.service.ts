@@ -1,19 +1,29 @@
-import { HttpStatus, Injectable } from '@nestjs/common';
+import { HttpStatus, Inject, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { RpcException } from '@nestjs/microservices';
+import { DataSource, Repository } from 'typeorm';
+import { ClientProxy, RpcException } from '@nestjs/microservices';
+import { firstValueFrom } from 'rxjs';
 import { CreateProyectoDto } from './dto/create-proyecto.dto';
 import { UpdateProyectoDto } from './dto/update-proyecto.dto';
+import { CreateProyectoCompletoDto } from './dto/create-proyecto-completo.dto';
 import { Proyecto } from './entities/proyecto.entity';
 import { Cliente } from 'src/cliente/entities/cliente.entity';
+import { ProyectoProducto } from 'src/proyecto-producto/entities/proyecto-producto.entity';
+import { ClienteService } from 'src/cliente/cliente.service';
+import { AuditoriaProyectoService } from 'src/auditoria-proyecto/auditoria-proyecto.service';
 import { BaseResponseDto } from '../common/dto/base-response.dto';
+import { NATS_SERVICE } from 'src/config';
 
 @Injectable()
 export class ProyectoService {
   constructor(
     @InjectRepository(Proyecto)
     private proyectoRepo: Repository<Proyecto>,
-  ) {}
+    private dataSource: DataSource,
+    private clienteService: ClienteService,
+    private auditoriaProyectoService: AuditoriaProyectoService,
+    @Inject(NATS_SERVICE) private readonly clientDispatch: ClientProxy,
+  ) { }
 
   async findAll(): Promise<BaseResponseDto<Proyecto[]>> {
     try {
@@ -67,12 +77,433 @@ export class ProyectoService {
     }
   }
 
-  create(createProyectoDto: CreateProyectoDto) {
-    return 'This action adds a new proyecto';
+  /**
+   * Crea un proyecto completo con cliente y productos en una transacción
+   */
+  async createProyectoCompleto(
+    createDto: CreateProyectoCompletoDto,
+  ): Promise<BaseResponseDto<Proyecto>> {
+    return await this.dataSource.transaction(async (manager) => {
+      try {
+        let idCliente: string;
+
+        // 1. Manejar cliente según tipo de proyecto
+        if (createDto.esProyectoNuevo) {
+          // Proyecto NUEVO: Validar que cliente no exista
+          if (!createDto.clienteNuevo) {
+            throw new RpcException({
+              message: 'Debe proporcionar datos del cliente nuevo',
+              statusCode: HttpStatus.BAD_REQUEST,
+            });
+          }
+
+          const clienteExistente = await this.clienteService.findByRazonSocial(
+            createDto.clienteNuevo.razonSocial,
+          );
+
+          if (clienteExistente) {
+            throw new RpcException({
+              message: `El cliente con razón social "${createDto.clienteNuevo.razonSocial}" ya existe`,
+              statusCode: HttpStatus.CONFLICT,
+            });
+          }
+
+          // Crear nuevo cliente
+          const nuevoCliente = manager.create(Cliente, {
+            razonSocial: createDto.clienteNuevo.razonSocial,
+            ruc: createDto.clienteNuevo.ruc,
+            tipo: createDto.clienteNuevo.tipo || 'GENERAL',
+            credito: createDto.clienteNuevo.credito || 'CONTADO',
+            condicion: createDto.clienteNuevo.condicion || 'HABILITADO',
+            datos: createDto.clienteNuevo.datos || '',
+            estaActivo: false,
+            tipoCliente: 'NUEVO',
+          });
+
+          const clienteGuardado = await manager.save(Cliente, nuevoCliente);
+          idCliente = clienteGuardado.idCliente;
+        } else {
+          // Proyecto ANTIGUO: Usar cliente existente
+          if (!createDto.idClienteExistente) {
+            throw new RpcException({
+              message: 'Debe proporcionar el ID del cliente existente',
+              statusCode: HttpStatus.BAD_REQUEST,
+            });
+          }
+
+          // Verificar que el cliente existe
+          const clienteExistente = await manager.findOne(Cliente, {
+            where: { idCliente: createDto.idClienteExistente },
+          });
+
+          if (!clienteExistente) {
+            throw new RpcException({
+              message: 'Cliente no encontrado',
+              statusCode: HttpStatus.NOT_FOUND,
+            });
+          }
+
+          idCliente = createDto.idClienteExistente;
+        }
+
+        // 2. Crear proyecto
+        const proyectoData: any = {
+          nombre: createDto.proyecto.nombre,
+          suf: createDto.proyecto.suf,
+          codigo: createDto.proyecto.codigo,
+          anio: createDto.proyecto.anio,
+          fechaTentativa: createDto.proyecto.fechaTentativa,
+          estaActivo: false, // Siempre false para proyectos nuevos
+          pisos: createDto.proyecto.pisos,
+          sotanos: createDto.proyecto.sotanos,
+          ubicacion: createDto.proyecto.ubicacion,
+          numeroContacto: createDto.proyecto.numeroContacto,
+          nombreContacto: createDto.proyecto.nombreContacto,
+          estado: createDto.proyecto.estado,
+          idComercial: createDto.proyecto.idComercial,
+          idCliente: idCliente, // Solo el UUID, no el objeto
+        };
+
+        // Solo agregar proyectoCUP si tiene valor
+        if (createDto.proyecto.proyectoCUP && createDto.proyecto.proyectoCUP.trim() !== '') {
+          proyectoData.proyectoCUP = createDto.proyecto.proyectoCUP;
+        }
+
+        const nuevoProyecto = manager.create(Proyecto, proyectoData);
+
+        const proyectoGuardado = await manager.save(Proyecto, nuevoProyecto);
+
+        // 3. Obtener configuración de productos desde dispatch-ms
+        let productosConfig: any[] = [];
+        if (createDto.productos && createDto.productos.length > 0) {
+          const idsProductos = createDto.productos.map((p) => p.idProducto);
+          try {
+            const response = await firstValueFrom(
+              this.clientDispatch.send('findProductosByIds', idsProductos),
+            );
+            if (response && response.success) {
+              productosConfig = response.data;
+            }
+          } catch (error) {
+            console.error('Error al obtener configuración de productos:', error);
+            // Continuar sin cálculo de comisiones si falla
+          }
+        }
+
+        // 4. Crear relaciones proyecto-producto con cálculo de comisiones
+        if (createDto.productos && createDto.productos.length > 0) {
+          const proyectoProductos = createDto.productos.map((productoDto) => {
+            const productoInfo = productosConfig.find(
+              (p) => p.idProducto === productoDto.idProducto,
+            );
+
+            let comisionEstimada = 0;
+
+            if (productoInfo && productoInfo.configuracionesComision && productoInfo.configuracionesComision.length > 0) {
+              // Asumimos que hay una configuración activa, tomamos la primera
+              const config = productoInfo.configuracionesComision[0]; // Deberíamos filtrar por activa si hay múltiples
+
+              if (config.activo) {
+                const cantidad = productoDto.cantidad || 0;
+                const precioVenta = productoDto.precioVenta || 0;
+
+                // Lógica de cálculo según comisiones.txt
+
+                // Prelosas: Tarifa diferente para cliente nuevo/antiguo
+                if (config.aplicaTipoCliente) {
+                  // Determinar si es cliente nuevo o antiguo
+                  // Si es proyecto nuevo con cliente nuevo -> NUEVO
+                  // Si es proyecto antiguo con cliente existente -> Verificar tipoCliente en BD
+                  // Por simplicidad y según el flujo actual:
+                  // Si createDto.esProyectoNuevo -> Cliente es NUEVO (recién creado)
+                  // Si !createDto.esProyectoNuevo -> Cliente es ANTIGUO (ya existía)
+                  // OJO: Un cliente existente podría ser "NUEVO" si es su primer proyecto, pero asumiremos
+                  // que si ya existe en BD es "ANTIGUO" para efectos de comisión, o deberíamos consultar el cliente.
+                  // REVISIÓN: El cliente tiene un campo `tipoCliente` ('NUEVO' | 'ANTIGUO').
+                  // Deberíamos usar ese campo.
+
+                  let tipoCliente = 'NUEVO';
+                  if (!createDto.esProyectoNuevo && createDto.idClienteExistente) {
+                    // Si el cliente ya existía, asumimos que su tipoCliente es el que tiene en BD.
+                    // Como no tenemos el objeto cliente completo aquí (solo id), podríamos haberlo traído antes.
+                    // En el paso 1 (Manejar cliente), ya verificamos el cliente existente.
+                    // Deberíamos guardar esa info.
+                    // Por ahora, usaremos la lógica simplificada: Si se crea ahora es NUEVO, si ya existía es ANTIGUO.
+                    // TODO: Refinar esto consultando el tipoCliente real del cliente existente.
+                    tipoCliente = 'ANTIGUO';
+                  }
+
+                  const tarifa = tipoCliente === 'NUEVO'
+                    ? (config.tarifaClienteNuevo || 0.20)
+                    : (config.tarifaClienteAntiguo || 0.15);
+
+                  comisionEstimada = cantidad * tarifa;
+
+                } else if (config.tipoCalculo === 'POR_UNIDAD') {
+                  // Previgas, Frisos, Sardinel, Muros (m2 o ml)
+                  // Tarifa fija * cantidad
+                  const tarifa = config.tarifaFija || 0;
+                  comisionEstimada = cantidad * tarifa;
+
+                } else if (config.tipoCalculo === 'PORCENTAJE_PRECIO') {
+                  // Escaleras: % del precio unitario
+                  // La regla dice: "3% del precio unitario".
+                  // Si una escalera vale 1000 soles, comision es 30.
+                  // Asumimos que precioVenta es el precio unitario.
+                  const porcentaje = config.porcentaje || 0;
+                  comisionEstimada = (precioVenta * porcentaje) / 100;
+                  // Si es por cantidad de escaleras, multiplicar por cantidad?
+                  // "Si una escalera vale 1000...". Si son 2 escaleras, serían 2000 y comisión 60.
+                  // Asumiremos que la comisión es por unidad vendida.
+                  comisionEstimada = comisionEstimada * cantidad;
+
+                } else if (config.tipoCalculo === 'PORCENTAJE_MARGEN') {
+                  // Acero: 10% de (precio venta - precio base)
+                  // Se calcula en dólares, pero el sistema maneja soles?
+                  // config.moneda indica la moneda.
+                  // Asumiremos que precioVenta viene en la misma moneda que config.precioBase
+                  const precioBase = config.precioBase || 770;
+                  const porcentaje = config.porcentaje || 10;
+
+                  // Diferencia por tonelada (o unidad de medida)
+                  const margen = Math.max(0, precioVenta - precioBase);
+                  const comisionPorUnidad = (margen * porcentaje) / 100;
+
+                  comisionEstimada = comisionPorUnidad * cantidad;
+                }
+              }
+            }
+
+            return manager.create(ProyectoProducto, {
+              idProyecto: proyectoGuardado.idProyecto,
+              idProducto: productoDto.idProducto,
+              cantidad: productoDto.cantidad || 0,
+              precioVenta: productoDto.precioVenta || undefined,
+              comisionEstimada: parseFloat(comisionEstimada.toFixed(2)),
+            });
+          });
+
+          await manager.save(ProyectoProducto, proyectoProductos);
+        }
+
+        // 5. Retornar proyecto con relaciones
+        const proyectoCompleto = await manager.findOne(Proyecto, {
+          where: { idProyecto: proyectoGuardado.idProyecto },
+          relations: ['idCliente', 'proyectoProductos'],
+        });
+
+        return BaseResponseDto.success(
+          proyectoCompleto,
+          'Proyecto registrado exitosamente',
+          201,
+        );
+      } catch (error) {
+        if (error instanceof RpcException) {
+          throw error;
+        }
+        throw new RpcException({
+          message: 'Error al crear proyecto completo',
+          statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+          error: error.message,
+        });
+      }
+    });
   }
 
-  update(id: number, updateProyectoDto: UpdateProyectoDto) {
-    return `This action updates a #${id} proyecto`;
+  async update(
+    id: string,
+    updateProyectoDto: UpdateProyectoDto,
+  ): Promise<BaseResponseDto<Proyecto>> {
+    return await this.dataSource.transaction(async (manager) => {
+      try {
+        // 1. Verificar que el proyecto existe
+        const proyecto = await manager.findOne(Proyecto, {
+          where: { idProyecto: id },
+        });
+
+        if (!proyecto) {
+          throw new RpcException({
+            message: 'Proyecto no encontrado',
+            statusCode: HttpStatus.NOT_FOUND,
+          });
+        }
+
+        // 2. Detectar cambio de estado a PERDIDO
+        const estadoAnterior = proyecto.estado;
+        const estadoNuevo = updateProyectoDto.estado;
+
+        // 3. Actualizar datos del proyecto
+        const { idCliente, ...updateData } = updateProyectoDto;
+        if (idCliente) {
+          updateData['idCliente'] = idCliente as any;
+        }
+        await manager.update(Proyecto, id, updateData);
+
+        // 4. Crear auditoría si el estado cambió a PERDIDO
+        if (estadoNuevo === 'PERDIDO' && estadoAnterior !== 'PERDIDO') {
+          await this.auditoriaProyectoService.create({
+            idProyecto: id,
+            fechaBaja: new Date(),
+            motivoPrincipal: '',
+            descripcion: '',
+          });
+        }
+
+        // 5. Obtener proyecto actualizado
+        const proyectoActualizado = await manager.findOne(Proyecto, {
+          where: { idProyecto: id },
+        });
+
+        return {
+          success: true,
+          statusCode: HttpStatus.OK,
+          message: 'Proyecto actualizado exitosamente',
+          data: proyectoActualizado,
+        };
+      } catch (error) {
+        if (error instanceof RpcException) {
+          throw error;
+        }
+        throw new RpcException({
+          message: 'Error al actualizar proyecto',
+          statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+          error: error.message,
+        });
+      }
+    });
+  }
+
+  /**
+   * Actualiza los productos asociados a un proyecto
+   * Elimina los productos anteriores y agrega los nuevos
+   */
+  async updateProductos(
+    idProyecto: string,
+    productos: Array<{ idProducto: string; cantidad?: number }>,
+  ): Promise<BaseResponseDto<ProyectoProducto[]>> {
+    return await this.dataSource.transaction(async (manager) => {
+      try {
+        // 1. Verificar que el proyecto existe
+        const proyecto = await manager.findOne(Proyecto, {
+          where: { idProyecto },
+          relations: ['idCliente'],
+        });
+
+        if (!proyecto) {
+          throw new RpcException({
+            message: 'Proyecto no encontrado',
+            statusCode: HttpStatus.NOT_FOUND,
+          });
+        }
+
+        // 2. Eliminar todos los productos asociados actuales
+        await manager.delete(ProyectoProducto, { idProyecto });
+
+        // 3. Crear los nuevos productos asociados
+        if (productos && productos.length > 0) {
+          // Obtener configuración de productos desde dispatch-ms
+          let productosConfig: any[] = [];
+          const idsProductos = productos.map((p) => p.idProducto);
+          try {
+            const response = await firstValueFrom(
+              this.clientDispatch.send('findProductosByIds', idsProductos),
+            );
+            if (response && response.success) {
+              productosConfig = response.data;
+            }
+          } catch (error) {
+            console.error('Error al obtener configuración de productos:', error);
+          }
+
+          const proyectoProductos = productos.map((productoDto) => {
+            const productoInfo = productosConfig.find(
+              (p) => p.idProducto === productoDto.idProducto,
+            );
+
+            let comisionEstimada = 0;
+
+            if (productoInfo && productoInfo.configuracionesComision && productoInfo.configuracionesComision.length > 0) {
+              const config = productoInfo.configuracionesComision[0];
+
+              if (config.activo) {
+                const cantidad = productoDto.cantidad || 0;
+                // @ts-ignore
+                const precioVenta = productoDto.precioVenta || 0;
+
+                if (config.aplicaTipoCliente) {
+                  // Recuperamos el tipo de cliente del proyecto
+                  let tipoCliente = 'ANTIGUO'; // Default
+                  if (proyecto.idCliente && typeof proyecto.idCliente === 'object') {
+                    // @ts-ignore
+                    tipoCliente = proyecto.idCliente.tipoCliente || 'ANTIGUO';
+                  }
+
+                  const tarifa = tipoCliente === 'NUEVO'
+                    ? (config.tarifaClienteNuevo || 0.20)
+                    : (config.tarifaClienteAntiguo || 0.15);
+
+                  comisionEstimada = cantidad * tarifa;
+
+                } else if (config.tipoCalculo === 'POR_UNIDAD') {
+                  const tarifa = config.tarifaFija || 0;
+                  comisionEstimada = cantidad * tarifa;
+
+                } else if (config.tipoCalculo === 'PORCENTAJE_PRECIO') {
+                  const porcentaje = config.porcentaje || 0;
+                  comisionEstimada = (precioVenta * porcentaje) / 100;
+                  comisionEstimada = comisionEstimada * cantidad;
+
+                } else if (config.tipoCalculo === 'PORCENTAJE_MARGEN') {
+                  const precioBase = config.precioBase || 770;
+                  const porcentaje = config.porcentaje || 10;
+                  const margen = Math.max(0, precioVenta - precioBase);
+                  const comisionPorUnidad = (margen * porcentaje) / 100;
+                  comisionEstimada = comisionPorUnidad * cantidad;
+                }
+              }
+            }
+
+            return manager.create(ProyectoProducto, {
+              idProyecto,
+              idProducto: productoDto.idProducto,
+              cantidad: productoDto.cantidad || 0,
+              // @ts-ignore
+              precioVenta: productoDto.precioVenta || undefined,
+              comisionEstimada: parseFloat(comisionEstimada.toFixed(2)),
+            });
+          });
+
+          const nuevosProductos = manager.create(
+            ProyectoProducto,
+            proyectoProductos,
+          );
+          await manager.save(ProyectoProducto, nuevosProductos);
+
+          return {
+            success: true,
+            statusCode: HttpStatus.OK,
+            message: 'Productos actualizados exitosamente',
+            data: nuevosProductos,
+          };
+        }
+
+        return {
+          success: true,
+          statusCode: HttpStatus.OK,
+          message: 'Productos eliminados exitosamente',
+          data: [],
+        };
+      } catch (error) {
+        if (error instanceof RpcException) {
+          throw error;
+        }
+        throw new RpcException({
+          message: 'Error al actualizar productos del proyecto',
+          statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+          error: error.message,
+        });
+      }
+    });
   }
 
   remove(id: number) {

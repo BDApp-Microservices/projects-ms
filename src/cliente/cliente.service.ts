@@ -12,7 +12,7 @@ export class ClienteService {
   constructor(
     @InjectRepository(Cliente)
     private clienteRepo: Repository<Cliente>,
-  ) {}
+  ) { }
 
   /**
    * Busca un cliente por razón social
@@ -60,7 +60,7 @@ export class ClienteService {
         credito: data.credito || 'CONTADO',
         condicion: data.condicion || 'HABILITADO',
         datos: data.datos || '',
-        activo: false,
+        estaActivo: false,
         tipoCliente: 'NUEVO',
       });
 
@@ -70,6 +70,78 @@ export class ClienteService {
     } catch (error) {
       throw new RpcException({
         message: 'Error al crear o buscar cliente',
+        statusCode: 500,
+        error: error.message,
+      });
+    }
+  }
+
+  /**
+   * Crea un nuevo cliente con validaciones de unicidad
+   */
+  async create(createClienteDto: CreateClienteDto): Promise<BaseResponseDto<Cliente>> {
+    try {
+      // Validar que no exista cliente con la misma razón social
+      const existeRazonSocial = await this.clienteRepo.findOne({
+        where: { razonSocial: createClienteDto.razonSocial },
+      });
+
+      if (existeRazonSocial) {
+        throw new RpcException({
+          message: 'Ya existe un cliente con esta razón social',
+          statusCode: 409,
+        });
+      }
+
+      // Validar que no exista cliente con el mismo RUC (si se proporciona)
+      if (createClienteDto.ruc) {
+        const existeRuc = await this.clienteRepo.findOne({
+          where: { ruc: createClienteDto.ruc },
+        });
+
+        if (existeRuc) {
+          throw new RpcException({
+            message: 'Ya existe un cliente con este RUC',
+            statusCode: 409,
+          });
+        }
+      }
+
+      // Validar que no exista cliente con el mismo nombre comercial (si se proporciona)
+      if (createClienteDto.nombreComercial) {
+        const existeNombreComercial = await this.clienteRepo.findOne({
+          where: { nombreComercial: createClienteDto.nombreComercial },
+        });
+
+        if (existeNombreComercial) {
+          throw new RpcException({
+            message: 'Ya existe un cliente con este nombre comercial',
+            statusCode: 409,
+          });
+        }
+      }
+
+      // Crear el nuevo cliente
+      const nuevoCliente = this.clienteRepo.create({
+        ...createClienteDto,
+        estaActivo: createClienteDto.estaActivo ?? false,
+        tipoCliente: createClienteDto.tipoCliente || 'NUEVO',
+      });
+
+      const clienteGuardado = await this.clienteRepo.save(nuevoCliente);
+
+      return {
+        success: true,
+        statusCode: 201,
+        message: 'Cliente creado exitosamente',
+        data: clienteGuardado,
+      };
+    } catch (error) {
+      if (error instanceof RpcException) {
+        throw error;
+      }
+      throw new RpcException({
+        message: 'Error al crear cliente',
         statusCode: 500,
         error: error.message,
       });
@@ -128,15 +200,38 @@ export class ClienteService {
     }
   }
 
-  create(createClienteDto: CreateClienteDto) {
-    return 'This action adds a new cliente';
-  }
+  async update(id: string, updateClienteDto: UpdateClienteDto): Promise<BaseResponseDto<Cliente>> {
+    try {
+      const cliente = await this.clienteRepo.findOne({
+        where: { idCliente: id },
+      });
 
-  update(id: number, updateClienteDto: UpdateClienteDto) {
-    return `This action updates a #${id} cliente`;
-  }
+      if (!cliente) {
+        throw new RpcException({
+          message: 'Cliente no encontrado',
+          statusCode: 404,
+        });
+      }
 
-  remove(id: number) {
-    return `This action removes a #${id} cliente`;
+      const clienteActualizado = await this.clienteRepo.save({
+        ...cliente,
+        ...updateClienteDto,
+      });
+
+      return BaseResponseDto.success(
+        clienteActualizado,
+        'Cliente actualizado exitosamente',
+        200,
+      );
+    } catch (error) {
+      if (error instanceof RpcException) {
+        throw error;
+      }
+      throw new RpcException({
+        message: 'Error al actualizar cliente',
+        statusCode: 500,
+        error: error.message,
+      });
+    }
   }
 }

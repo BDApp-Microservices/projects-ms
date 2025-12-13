@@ -9,10 +9,10 @@ export class AuditoriaProyecto {
     @Column('date', { name: 'fecha_baja' })
     fechaBaja: Date;
 
-    @Column('varchar', { name: 'motivo_principal', length: 100 })
+    @Column('varchar', { name: 'motivo_principal', length: 100, nullable: true })
     motivoPrincipal: string;
 
-    @Column('text', { name: 'descripcion', nullable: false })
+    @Column('text', { name: 'descripcion', nullable: true })
     descripcion: string;
 
     // Relaciones

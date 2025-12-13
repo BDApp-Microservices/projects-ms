@@ -6,7 +6,7 @@ import { UpdateClienteDto } from './dto/update-cliente.dto';
 
 @Controller()
 export class ClienteController {
-  constructor(private readonly clienteService: ClienteService) {}
+  constructor(private readonly clienteService: ClienteService) { }
 
   @MessagePattern('createCliente')
   create(@Payload() createClienteDto: CreateClienteDto) {
@@ -24,12 +24,8 @@ export class ClienteController {
   }
 
   @MessagePattern('updateCliente')
-  update(@Payload() updateClienteDto: UpdateClienteDto) {
-    return this.clienteService.update(updateClienteDto.id, updateClienteDto);
-  }
-
-  @MessagePattern('removeCliente')
-  remove(@Payload() id: number) {
-    return this.clienteService.remove(id);
+  update(@Payload() payload: { id: string } & UpdateClienteDto) {
+    const { id, ...updateData } = payload;
+    return this.clienteService.update(id, updateData);
   }
 }

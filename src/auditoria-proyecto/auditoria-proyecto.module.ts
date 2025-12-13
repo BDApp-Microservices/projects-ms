@@ -8,5 +8,6 @@ import { AuditoriaProyecto } from './entities/auditoria-proyecto.entity';
   imports: [TypeOrmModule.forFeature([AuditoriaProyecto])],
   controllers: [AuditoriaProyectoController],
   providers: [AuditoriaProyectoService],
+  exports: [AuditoriaProyectoService],
 })
-export class AuditoriaProyectoModule {}
+export class AuditoriaProyectoModule { }
