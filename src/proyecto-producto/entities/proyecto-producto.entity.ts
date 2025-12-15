@@ -29,6 +29,18 @@ export class ProyectoProducto {
   })
   precioVenta: number;
 
+  @Column('boolean', {
+    name: 'esta_activo',
+    default: true,
+  })
+  estaActivo: boolean;
+
+  @Column('timestamp with time zone', {
+    name: 'fecha_desactivacion',
+    nullable: true,
+  })
+  fechaDesactivacion: Date | null;
+
   @ManyToOne(() => Proyecto, proyecto => proyecto.proyectoProductos)
   @JoinColumn({ name: 'id_proyecto', referencedColumnName: 'idProyecto' })
   idProyecto: string;

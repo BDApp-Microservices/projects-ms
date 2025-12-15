@@ -77,6 +77,28 @@ export class ProyectoService {
     }
   }
 
+  async findByComercial(idComercial: string): Promise<BaseResponseDto<Proyecto[]>> {
+    try {
+      const proyectos = await this.proyectoRepo.find({
+        where: { idComercial },
+        relations: ['idCliente'],
+        order: { fechaCreacion: 'DESC' },
+      });
+
+      return BaseResponseDto.success(
+        proyectos,
+        'Proyectos del comercial obtenidos exitosamente',
+        200,
+      );
+    } catch (error) {
+      throw new RpcException({
+        message: 'Error al obtener proyectos del comercial',
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        error: error.message,
+      });
+    }
+  }
+
   /**
    * Crea un proyecto completo con cliente y productos en una transacción
    */
@@ -499,6 +521,134 @@ export class ProyectoService {
         }
         throw new RpcException({
           message: 'Error al actualizar productos del proyecto',
+          statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+          error: error.message,
+        });
+      }
+    });
+  }
+
+  /**
+   * Agrega nuevos productos a un proyecto sin eliminar los existentes
+   */
+  async addProductos(
+    idProyecto: string,
+    productos: Array<{ idProducto: string; cantidad?: number; precioVenta?: number }>,
+  ): Promise<BaseResponseDto<ProyectoProducto[]>> {
+    return await this.dataSource.transaction(async (manager) => {
+      try {
+        // 1. Verificar que el proyecto existe
+        const proyecto = await manager.findOne(Proyecto, {
+          where: { idProyecto },
+          relations: ['idCliente'],
+        });
+
+        if (!proyecto) {
+          throw new RpcException({
+            message: 'Proyecto no encontrado',
+            statusCode: HttpStatus.NOT_FOUND,
+          });
+        }
+
+        // 2. Filtrar productos que ya existen
+        const productosExistentes = await manager.find(ProyectoProducto, {
+          where: { idProyecto },
+        });
+
+        const idsExistentes = productosExistentes.map(p => p.idProducto);
+        const productosNuevos = productos.filter(p => !idsExistentes.includes(p.idProducto));
+
+        if (productosNuevos.length === 0) {
+          return {
+            success: true,
+            statusCode: HttpStatus.OK,
+            message: 'Todos los productos ya están agregados al proyecto',
+            data: [],
+          };
+        }
+
+        // 3. Obtener configuración de productos desde dispatch-ms
+        let productosConfig: any[] = [];
+        const idsProductos = productosNuevos.map((p) => p.idProducto);
+        try {
+          const response = await firstValueFrom(
+            this.clientDispatch.send('findProductosByIds', idsProductos),
+          );
+          if (response && response.success) {
+            productosConfig = response.data;
+          }
+        } catch (error) {
+          console.error('Error al obtener configuración de productos:', error);
+        }
+
+        // 4. Calcular comisiones y crear productos
+        const proyectoProductos = productosNuevos.map((productoDto) => {
+          const productoInfo = productosConfig.find(
+            (p) => p.idProducto === productoDto.idProducto,
+          );
+
+          let comisionEstimada = 0;
+
+          if (productoInfo && productoInfo.configuracionesComision && productoInfo.configuracionesComision.length > 0) {
+            const config = productoInfo.configuracionesComision[0];
+
+            if (config.activo) {
+              const cantidad = productoDto.cantidad || 0;
+              const precioVenta = productoDto.precioVenta || 0;
+              const precioBase = config.precioBase || 0;
+
+              if (config.aplicaTipoCliente) {
+                let tipoCliente = 'ANTIGUO';
+                if (proyecto.idCliente && typeof proyecto.idCliente === 'object') {
+                  // @ts-ignore
+                  tipoCliente = proyecto.idCliente.tipoCliente || 'ANTIGUO';
+                }
+
+                const tarifa = tipoCliente === 'NUEVO'
+                  ? (config.tarifaClienteNuevo || 0.20)
+                  : (config.tarifaClienteAntiguo || 0.15);
+
+                comisionEstimada = cantidad * tarifa;
+
+              } else if (config.tipoCalculo === 'POR_UNIDAD') {
+                const tarifa = config.tarifaFija || 0;
+                comisionEstimada = cantidad * tarifa;
+
+              } else if (config.tipoCalculo === 'PORCENTAJE_PRECIO') {
+                const porcentaje = config.porcentaje || 0;
+                comisionEstimada = (cantidad * precioBase * porcentaje) / 100;
+
+              } else if (config.tipoCalculo === 'PORCENTAJE_MARGEN') {
+                const porcentaje = config.porcentaje || 0;
+                comisionEstimada = (((cantidad / 1000) * (precioVenta - precioBase)) * porcentaje) / 100;
+              }
+            }
+          }
+
+          return manager.create(ProyectoProducto, {
+            idProyecto,
+            idProducto: productoDto.idProducto,
+            cantidad: productoDto.cantidad || 0,
+            // @ts-ignore
+            precioVenta: productoDto.precioVenta || undefined,
+            comisionEstimada: parseFloat(comisionEstimada.toFixed(2)),
+          });
+        });
+
+        const nuevosProductos = await manager.save(ProyectoProducto, proyectoProductos);
+
+        return {
+          success: true,
+          statusCode: HttpStatus.OK,
+          message: `${nuevosProductos.length} producto(s) agregado(s) exitosamente`,
+          data: nuevosProductos,
+        };
+      } catch (error) {
+        if (error instanceof RpcException) {
+          throw error;
+        }
+        throw new RpcException({
+          message: 'Error al agregar productos al proyecto',
           statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
           error: error.message,
         });

@@ -10,4 +10,19 @@ export class ProyectoProductoController {
   findByProyecto(@Payload() idProyecto: string) {
     return this.proyectoProductoService.findByProyecto(idProyecto);
   }
+
+  @MessagePattern('softDeleteProyectoProducto')
+  softDelete(@Payload() payload: { idProyecto: string; idProducto: string }) {
+    return this.proyectoProductoService.softDelete(payload.idProyecto, payload.idProducto);
+  }
+
+  @MessagePattern('reactivateProyectoProducto')
+  reactivate(@Payload() payload: { idProyecto: string; idProducto: string }) {
+    return this.proyectoProductoService.reactivate(payload.idProyecto, payload.idProducto);
+  }
+
+  @MessagePattern('updateCantidadProyectoProducto')
+  updateCantidad(@Payload() payload: { idProyecto: string; idProducto: string; cantidad: number }) {
+    return this.proyectoProductoService.updateCantidad(payload.idProyecto, payload.idProducto, payload.cantidad);
+  }
 }

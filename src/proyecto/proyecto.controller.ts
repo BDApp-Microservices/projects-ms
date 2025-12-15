@@ -23,6 +23,11 @@ export class ProyectoController {
     return this.proyectoService.findOne(id);
   }
 
+  @MessagePattern('findProyectosByComercial')
+  findByComercial(@Payload() idComercial: string) {
+    return this.proyectoService.findByComercial(idComercial);
+  }
+
   @MessagePattern('updateProyecto')
   update(@Payload() payload: { id: string } & UpdateProyectoDto) {
     const { id, ...updateData } = payload;
@@ -34,6 +39,13 @@ export class ProyectoController {
     @Payload() payload: { idProyecto: string; productos: Array<{ idProducto: string; cantidad?: number }> },
   ) {
     return this.proyectoService.updateProductos(payload.idProyecto, payload.productos);
+  }
+
+  @MessagePattern('addProyectoProductos')
+  addProductos(
+    @Payload() payload: { idProyecto: string; productos: Array<{ idProducto: string; cantidad?: number; precioVenta?: number }> },
+  ) {
+    return this.proyectoService.addProductos(payload.idProyecto, payload.productos);
   }
 
   @MessagePattern('removeProyecto')
