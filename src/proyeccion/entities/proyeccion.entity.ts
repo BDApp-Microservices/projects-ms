@@ -1,5 +1,4 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn, OneToMany } from "typeorm";
-import { Proyecto } from "src/proyecto/entities/proyecto.entity";
 import { ProyectoProducto } from "src/proyecto-producto/entities/proyecto-producto.entity";
 import { ProyeccionSemanal } from "src/proyeccion-semanal/entities/proyeccion-semanal.entity";
 import { TipoProyeccion } from "src/common/enums/tipo-proyeccion.enum";
@@ -39,17 +38,13 @@ export class Proyeccion {
     @Column('int', { name: 'sotanos', default: 0 })
     sotanos: number;
 
-    @Column('decimal', { name: 'pisos_semana', precision: 10, scale: 2 })
+    @Column('decimal', { name: 'pisos_semana', precision: 5, scale: 1 })
     pisosSemana: number;
 
     @Column('decimal', { name: 'total', precision: 10, scale: 2 })
     total: number;
 
     // Relaciones
-
-    @ManyToOne(() => Proyecto, proyecto => proyecto.proyecciones)
-    @JoinColumn({ name: 'id_proyecto', referencedColumnName: 'idProyecto' })
-    idProyecto: Proyecto;
 
     @ManyToOne(() => ProyectoProducto, proyectoProducto => proyectoProducto.proyecciones)
     @JoinColumn({ name: 'id_proyecto_producto', referencedColumnName: 'idProyectoProducto' })

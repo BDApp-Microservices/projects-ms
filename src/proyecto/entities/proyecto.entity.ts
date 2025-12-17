@@ -3,7 +3,6 @@ import { AsesoriaTecnica } from "src/asesoria-tecnica/entities/asesoria-tecnica.
 import { Cliente } from "src/cliente/entities/cliente.entity";
 import { ProyectoRequisito } from "src/proyecto-requisito/entities/proyecto-requisito.entity";
 import { AuditoriaProyecto } from "src/auditoria-proyecto/entities/auditoria-proyecto.entity";
-import { Proyeccion } from "src/proyeccion/entities/proyeccion.entity";
 import { ProyectoProducto } from "src/proyecto-producto/entities/proyecto-producto.entity";
 
 @Entity()
@@ -11,7 +10,7 @@ export class Proyecto {
     @PrimaryGeneratedColumn('uuid', { name: 'id_proyecto' })
     idProyecto: string;
 
-    @Column('varchar', { name: 'proyecto_cup', length: 50, unique: true, nullable: true })
+    @Column('varchar', { name: 'proyecto_cup', length: 50, nullable: true })
     proyectoCUP: string;
 
     @Column('varchar', { name: 'nombre', length: 100 })
@@ -80,10 +79,6 @@ export class Proyecto {
     // Auditorias del proyecto - Relacion fisica
     @OneToMany(() => AuditoriaProyecto, auditoriaProyecto => auditoriaProyecto.idProyecto)
     auditoriasProyecto: AuditoriaProyecto[];
-
-    // Proyecciones asociadas al proyecto - Relacion fisica
-    @OneToMany(() => Proyeccion, proyeccion => proyeccion.idProyecto)
-    proyecciones: Proyeccion[];
 
     //Productos asociados al proyecto - Relacion fisica
     @OneToMany(() => ProyectoProducto, proyectoProducto => proyectoProducto.idProyecto)

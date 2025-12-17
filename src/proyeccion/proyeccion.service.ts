@@ -1,4 +1,5 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, HttpStatus } from '@nestjs/common';
+import { RpcException } from '@nestjs/microservices';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { CreateProyeccionDto } from './dto/create-proyeccion.dto';
@@ -21,7 +22,7 @@ export class ProyeccionService {
     private readonly proyectoProductoRepository: Repository<ProyectoProducto>,
     private readonly productoClientService: ProductoClientService,
     private readonly dataSource: DataSource,
-  ) {}
+  ) { }
 
   /**
    * Crea una nueva proyección con sus proyecciones semanales
@@ -44,62 +45,71 @@ export class ProyeccionService {
       // 1. Validar unicidad: solo una proyección por proyecto-producto y tipo
       const existente = await this.proyeccionRepository
         .createQueryBuilder('proyeccion')
-        .where('proyeccion.id_proyecto_producto = :idProyectoProducto', { 
-          idProyectoProducto: createProyeccionDto.idProyectoProducto 
+        .where('proyeccion.id_proyecto_producto = :idProyectoProducto', {
+          idProyectoProducto: createProyeccionDto.idProyectoProducto
         })
-        .andWhere('proyeccion.tipo_proyeccion = :tipoProyeccion', { 
-          tipoProyeccion: createProyeccionDto.tipoProyeccion 
+        .andWhere('proyeccion.tipo_proyeccion = :tipoProyeccion', {
+          tipoProyeccion: createProyeccionDto.tipoProyeccion
         })
         .getOne();
 
       if (existente) {
-        throw new BadRequestException(
-          `Ya existe una proyección de tipo ${createProyeccionDto.tipoProyeccion} para este proyecto-producto`
-        );
+        throw new RpcException({
+          message: `Ya existe una proyección de tipo ${createProyeccionDto.tipoProyeccion} para este proyecto-producto`,
+          statusCode: HttpStatus.BAD_REQUEST,
+        });
       }
 
-      // 2. Obtener ProyectoProducto con sus relaciones
+      // 2. Obtener ProyectoProducto para validar
       const proyectoProducto = await this.proyectoProductoRepository.findOne({
-        where: { idProyectoProducto: createProyeccionDto.idProyectoProducto },
-        relations: ['idProyecto']
+        where: { idProyectoProducto: createProyeccionDto.idProyectoProducto }
       });
 
       if (!proyectoProducto) {
-        throw new BadRequestException('ProyectoProducto no encontrado');
+        throw new RpcException({
+          message: 'ProyectoProducto no encontrado',
+          statusCode: HttpStatus.NOT_FOUND,
+        });
       }
 
-      // 3. Extraer datos del proyecto (idProyecto es string, necesitamos cargar el Proyecto)
-      const proyecto = await queryRunner.manager.findOne(Proyecto, {
-        where: { idProyecto: proyectoProducto.idProyecto }
-      });
+      // 3. Usar datos del DTO (enviados desde frontend)
+      const pisos = createProyeccionDto.pisos;
+      const sotanos = createProyeccionDto.sotanos;
+      const fechaInicio = new Date(createProyeccionDto.fechaInicio);
+      const total = createProyeccionDto.total;
+      const unidad = createProyeccionDto.unidadMedida;
 
-      if (!proyecto) {
-        throw new BadRequestException('Proyecto no encontrado');
-      }
-
-      const pisos = proyecto.pisos || 0;
-      const sotanos = proyecto.sotanos || 0;
-      const fechaInicio = new Date(proyecto.fechaTentativa);
-      const total = proyectoProducto.cantidad;
-
-      // Validar que haya al menos un piso o sótano
+      // Validar que haya al menos un piso o sótano (permitir 0 si es necesario)
       if (pisos + sotanos === 0) {
-        throw new BadRequestException(
-          'El proyecto debe tener al menos un piso o sótano para crear una proyección'
-        );
+        // Si no hay pisos ni sótanos, crear proyección simple sin distribución semanal
+        const proyeccion = queryRunner.manager.create(Proyeccion, {
+          fechaInicio: fechaInicio,
+          fechaFin: fechaInicio,
+          tipoProyeccion: createProyeccionDto.tipoProyeccion,
+          estado: createProyeccionDto.estado,
+          metradoPiso: 0,
+          pisos,
+          sotanos,
+          pisosSemana: createProyeccionDto.pisosSemana,
+          total,
+          idProyectoProducto: proyectoProducto
+        });
+
+        const proyeccionGuardada = await queryRunner.manager.save(Proyeccion, proyeccion);
+        await queryRunner.commitTransaction();
+        await queryRunner.release();
+
+        return await this.findOne(proyeccionGuardada.idProyeccion);
       }
 
-      // 4. Obtener unidad de medida del producto (desde dispatch-ms)
-      const unidad = await this.productoClientService.getUnidadMedida(proyectoProducto.idProducto);
-
-      // 5. Calcular metrado por piso
+      // 4. Calcular metrado por piso
       // Formula: total / ((pisos + sotanos) / pisosSemana)
       const metradoPiso = total / ((pisos + sotanos) / createProyeccionDto.pisosSemana);
 
-      // 6. Calcular número de semanas
+      // 5. Calcular número de semanas
       const numeroSemanas = Math.ceil((pisos + sotanos) / createProyeccionDto.pisosSemana);
 
-      // 7. Crear la proyección (sin fechaFin aún, se actualiza después)
+      // 6. Crear la proyección (sin fechaFin aún, se actualiza después)
       const proyeccion = queryRunner.manager.create(Proyeccion, {
         fechaInicio: fechaInicio,
         fechaFin: fechaInicio, // Temporal, se actualiza después
@@ -110,13 +120,12 @@ export class ProyeccionService {
         sotanos,
         pisosSemana: createProyeccionDto.pisosSemana,
         total,
-        idProyecto: proyecto,
         idProyectoProducto: proyectoProducto
       });
 
       const proyeccionGuardada = await queryRunner.manager.save(Proyeccion, proyeccion);
 
-      // 8. Generar proyecciones semanales
+      // 7. Generar proyecciones semanales
       // Siempre empiezan en lunes
       let fechaSemana = getNextMonday(fechaInicio);
       const proyeccionesSemanales: ProyeccionSemanal[] = [];
@@ -140,7 +149,7 @@ export class ProyeccionService {
 
       await queryRunner.manager.save(ProyeccionSemanal, proyeccionesSemanales);
 
-      // 9. Actualizar fechaFin con la fecha de la última semana
+      // 8. Actualizar fechaFin con la fecha de la última semana
       const ultimaSemana = proyeccionesSemanales[proyeccionesSemanales.length - 1];
       proyeccionGuardada.fechaFin = ultimaSemana.fecha;
       await queryRunner.manager.save(Proyeccion, proyeccionGuardada);
@@ -151,7 +160,17 @@ export class ProyeccionService {
       return await this.findOne(proyeccionGuardada.idProyeccion);
     } catch (error) {
       await queryRunner.rollbackTransaction();
-      throw new BadRequestException(`Error al crear la proyección: ${error.message}`);
+
+      // Si ya es una RpcException, relanzarla
+      if (error instanceof RpcException) {
+        throw error;
+      }
+
+      // Sino, envolver en RpcException
+      throw new RpcException({
+        message: `Error al crear la proyección: ${error.message}`,
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+      });
     } finally {
       await queryRunner.release();
     }
@@ -162,7 +181,7 @@ export class ProyeccionService {
    */
   async findAll(): Promise<Proyeccion[]> {
     return await this.proyeccionRepository.find({
-      relations: ['idProyecto', 'idProyectoProducto', 'proyeccionesSemanales'],
+      relations: ['idProyectoProducto', 'proyeccionesSemanales'],
       order: {
         fechaCreacion: 'DESC'
       }
@@ -175,11 +194,14 @@ export class ProyeccionService {
   async findOne(id: string): Promise<Proyeccion> {
     const proyeccion = await this.proyeccionRepository.findOne({
       where: { idProyeccion: id },
-      relations: ['idProyecto', 'idProyectoProducto', 'proyeccionesSemanales']
+      relations: ['idProyectoProducto', 'proyeccionesSemanales']
     });
 
     if (!proyeccion) {
-      throw new BadRequestException('Proyección no encontrada');
+      throw new RpcException({
+        message: 'Proyección no encontrada',
+        statusCode: HttpStatus.NOT_FOUND,
+      });
     }
 
     return proyeccion;
@@ -191,7 +213,7 @@ export class ProyeccionService {
   async findByProyectoProducto(idProyectoProducto: string): Promise<Proyeccion[]> {
     return await this.proyeccionRepository.find({
       where: { idProyectoProducto: { idProyectoProducto } },
-      relations: ['idProyecto', 'idProyectoProducto', 'proyeccionesSemanales'],
+      relations: ['idProyectoProducto', 'proyeccionesSemanales'],
       order: {
         fechaCreacion: 'DESC'
       }
@@ -199,16 +221,17 @@ export class ProyeccionService {
   }
 
   /**
-   * Obtiene todas las proyecciones de un proyecto
+   * Obtiene todas las proyecciones de un proyecto específico
+   * Busca a través de la relación ProyectoProducto
    */
   async findByProyecto(idProyecto: string): Promise<Proyeccion[]> {
-    return await this.proyeccionRepository.find({
-      where: { idProyecto: { idProyecto } },
-      relations: ['idProyecto', 'idProyectoProducto', 'proyeccionesSemanales'],
-      order: {
-        fechaCreacion: 'DESC'
-      }
-    });
+    return await this.proyeccionRepository
+      .createQueryBuilder('proyeccion')
+      .leftJoinAndSelect('proyeccion.idProyectoProducto', 'proyectoProducto')
+      .leftJoinAndSelect('proyeccion.proyeccionesSemanales', 'proyeccionesSemanales')
+      .where('proyectoProducto.id_proyecto = :idProyecto', { idProyecto })
+      .orderBy('proyeccion.fechaCreacion', 'DESC')
+      .getMany();
   }
 
   /**
@@ -233,7 +256,7 @@ export class ProyeccionService {
 
       // 3. Aplicar cambios según el tipo
       let proyeccionActualizada: Proyeccion;
-      
+
       switch (tipoCambio) {
         case 'INOFENSIVO':
           proyeccionActualizada = await this.actualizarInofensivo(proyeccion, updateProyeccionDto, queryRunner);
@@ -249,11 +272,21 @@ export class ProyeccionService {
       }
 
       await queryRunner.commitTransaction();
-      
+
       return await this.findOne(proyeccionActualizada.idProyeccion);
     } catch (error) {
       await queryRunner.rollbackTransaction();
-      throw new BadRequestException(`Error al actualizar la proyección: ${error.message}`);
+
+      // Si ya es una RpcException, relanzarla
+      if (error instanceof RpcException) {
+        throw error;
+      }
+
+      // Sino, envolver en RpcException
+      throw new RpcException({
+        message: `Error al actualizar la proyección: ${error.message}`,
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+      });
     } finally {
       await queryRunner.release();
     }
@@ -283,7 +316,17 @@ export class ProyeccionService {
       await queryRunner.commitTransaction();
     } catch (error) {
       await queryRunner.rollbackTransaction();
-      throw new BadRequestException(`Error al eliminar la proyección: ${error.message}`);
+
+      // Si ya es una RpcException, relanzarla
+      if (error instanceof RpcException) {
+        throw error;
+      }
+
+      // Sino, envolver en RpcException
+      throw new RpcException({
+        message: `Error al eliminar la proyección: ${error.message}`,
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+      });
     } finally {
       await queryRunner.release();
     }
@@ -295,7 +338,7 @@ export class ProyeccionService {
    * Clasifica el tipo de cambio para determinar la estrategia de actualización
    */
   private clasificarTipoCambio(
-    proyeccion: Proyeccion, 
+    proyeccion: Proyeccion,
     updateDto: UpdateProyeccionDto
   ): 'INOFENSIVO' | 'MOVIMIENTO' | 'ESTRUCTURAL' {
     // Si se fuerza recálculo, siempre es estructural
@@ -347,8 +390,8 @@ export class ProyeccionService {
    * Actualización INOFENSIVA: Solo campos básicos, no toca semanas
    */
   private async actualizarInofensivo(
-    proyeccion: Proyeccion, 
-    updateDto: UpdateProyeccionDto, 
+    proyeccion: Proyeccion,
+    updateDto: UpdateProyeccionDto,
     queryRunner: any
   ): Promise<Proyeccion> {
     // Solo actualizar campos inofensivos
@@ -367,8 +410,8 @@ export class ProyeccionService {
    * (No implementado aún - requiere cambio en fechaTentativa del proyecto)
    */
   private async actualizarMovimiento(
-    proyeccion: Proyeccion, 
-    updateDto: UpdateProyeccionDto, 
+    proyeccion: Proyeccion,
+    updateDto: UpdateProyeccionDto,
     queryRunner: any
   ): Promise<Proyeccion> {
     // Por ahora, solo actualizar campos inofensivos
@@ -380,27 +423,32 @@ export class ProyeccionService {
    * Actualización ESTRUCTURAL: Regenera todo desde cero
    */
   private async actualizarEstructural(
-    proyeccion: Proyeccion, 
-    updateDto: UpdateProyeccionDto, 
+    proyeccion: Proyeccion,
+    updateDto: UpdateProyeccionDto,
     queryRunner: any
   ): Promise<Proyeccion> {
-    // 1. Obtener datos actualizados
+    // 1. Obtener datos actualizados (sin relaciones, idProyecto es string)
     const proyectoProducto = await this.proyectoProductoRepository.findOne({
-      where: { idProyectoProducto: proyeccion.idProyectoProducto.idProyectoProducto },
-      relations: ['idProyecto']
+      where: { idProyectoProducto: proyeccion.idProyectoProducto.idProyectoProducto }
     });
 
     if (!proyectoProducto) {
-      throw new BadRequestException('ProyectoProducto no encontrado');
+      throw new RpcException({
+        message: 'ProyectoProducto no encontrado',
+        statusCode: HttpStatus.NOT_FOUND,
+      });
     }
 
-    // Cargar el proyecto
+    // Cargar el proyecto usando el idProyecto (string)
     const proyecto = await queryRunner.manager.findOne(Proyecto, {
       where: { idProyecto: proyectoProducto.idProyecto }
     });
 
     if (!proyecto) {
-      throw new BadRequestException('Proyecto no encontrado');
+      throw new RpcException({
+        message: 'Proyecto no encontrado',
+        statusCode: HttpStatus.NOT_FOUND,
+      });
     }
 
     const pisos = proyecto.pisos || 0;
@@ -423,7 +471,7 @@ export class ProyeccionService {
     proyeccion.pisosSemana = pisosSemana;
     proyeccion.total = total;
     proyeccion.fechaInicio = fechaInicio;
-    
+
     if (updateDto.estado) proyeccion.estado = updateDto.estado;
     if (updateDto.tipoProyeccion) proyeccion.tipoProyeccion = updateDto.tipoProyeccion;
 

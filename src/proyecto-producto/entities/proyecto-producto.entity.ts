@@ -42,11 +42,13 @@ export class ProyectoProducto {
   })
   fechaDesactivacion: Date | null;
 
+  // Relaciones
+
   @ManyToOne(() => Proyecto, proyecto => proyecto.proyectoProductos)
   @JoinColumn({ name: 'id_proyecto', referencedColumnName: 'idProyecto' })
   idProyecto: string;
 
-  @Column('uuid', { name: 'id_producto' })
+  @Column('uuid', { name: 'id_producto' }) // Relacion logica
   idProducto: string;
 
   // Proyecciones asociadas al proyecto-producto

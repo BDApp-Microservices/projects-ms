@@ -10,7 +10,7 @@ import { UpdateProyeccionDto } from './dto/update-proyeccion.dto';
  */
 @Controller()
 export class ProyeccionController {
-  constructor(private readonly proyeccionService: ProyeccionService) {}
+  constructor(private readonly proyeccionService: ProyeccionService) { }
 
   /**
    * Crea una nueva proyección
