@@ -1,5 +1,6 @@
-import { Column, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
+import { Column, Entity, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
 import { Proyecto } from 'src/proyecto/entities/proyecto.entity';
+import { Proyeccion } from 'src/proyeccion/entities/proyeccion.entity';
 
 @Entity()
 export class ProyectoProducto {
@@ -47,4 +48,8 @@ export class ProyectoProducto {
 
   @Column('uuid', { name: 'id_producto' })
   idProducto: string;
+
+  // Proyecciones asociadas al proyecto-producto
+  @OneToMany(() => Proyeccion, proyeccion => proyeccion.idProyectoProducto)
+  proyecciones: Proyeccion[];
 }

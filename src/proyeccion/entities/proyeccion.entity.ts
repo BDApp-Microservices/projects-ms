@@ -1,6 +1,9 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn, OneToMany } from "typeorm";
 import { Proyecto } from "src/proyecto/entities/proyecto.entity";
+import { ProyectoProducto } from "src/proyecto-producto/entities/proyecto-producto.entity";
 import { ProyeccionSemanal } from "src/proyeccion-semanal/entities/proyeccion-semanal.entity";
+import { TipoProyeccion } from "src/common/enums/tipo-proyeccion.enum";
+import { EstadoProyeccion } from "src/common/enums/estado-proyeccion.enum";
 
 @Entity()
 export class Proyeccion {
@@ -13,19 +16,27 @@ export class Proyeccion {
     @Column('date', { name: 'fecha_fin' })
     fechaFin: Date;
 
-    @Column('varchar', { name: 'tipo_proyeccion', length: 20 })
-    tipoProyeccion: string; // 'REAL' o 'PROSPECTO'
+    @Column({
+        type: 'enum',
+        enum: TipoProyeccion,
+        name: 'tipo_proyeccion'
+    })
+    tipoProyeccion: TipoProyeccion;
 
-    @Column('varchar', { name: 'estado', length: 20 })
-    estado: string; // 'CALIENTITO', 'DESPACHANDO', 'CERRADO', 'TERMINADO'.
+    @Column({
+        type: 'enum',
+        enum: EstadoProyeccion,
+        name: 'estado'
+    })
+    estado: EstadoProyeccion;
 
     @Column('decimal', { name: 'metrado_piso', precision: 10, scale: 2 })
     metradoPiso: number;
 
-    @Column('int', { name: 'pisos' })
+    @Column('int', { name: 'pisos', default: 0 })
     pisos: number;
 
-    @Column('int', { name: 'sotanos' })
+    @Column('int', { name: 'sotanos', default: 0 })
     sotanos: number;
 
     @Column('decimal', { name: 'pisos_semana', precision: 10, scale: 2 })
@@ -38,14 +49,16 @@ export class Proyeccion {
 
     @ManyToOne(() => Proyecto, proyecto => proyecto.proyecciones)
     @JoinColumn({ name: 'id_proyecto', referencedColumnName: 'idProyecto' })
-    idProyecto: string;
+    idProyecto: Proyecto;
 
-    // Producto asociado a la proyeccion - Relacion logica
-    @Column('uuid', { name: 'id_producto' })
-    idProducto: string;
+    @ManyToOne(() => ProyectoProducto, proyectoProducto => proyectoProducto.proyecciones)
+    @JoinColumn({ name: 'id_proyecto_producto', referencedColumnName: 'idProyectoProducto' })
+    idProyectoProducto: ProyectoProducto;
 
     // Proyecciones semanales asociadas a la proyeccion
-    @OneToMany(() => ProyeccionSemanal, proyeccionSemanal => proyeccionSemanal.idProyeccion)
+    @OneToMany(() => ProyeccionSemanal, proyeccionSemanal => proyeccionSemanal.idProyeccion, {
+        cascade: true
+    })
     proyeccionesSemanales: ProyeccionSemanal[];
 
     // Fin relaciones
