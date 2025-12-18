@@ -58,6 +58,15 @@ export class ProyeccionController {
   }
 
   /**
+   * Obtiene proyecciones por tipo y producto
+   * Comando: { cmd: 'findByTipoAndProducto.proyeccion' }
+   */
+  @MessagePattern({ cmd: 'findByTipoAndProducto.proyeccion' })
+  findByTipoAndProducto(@Payload() data: { tipoProyeccion: string; idProducto: string }) {
+    return this.proyeccionService.findByTipoAndProducto(data.tipoProyeccion, data.idProducto);
+  }
+
+  /**
    * Actualiza una proyección
    * Comando: { cmd: 'update.proyeccion' }
    * Payload: { id: string, dto: UpdateProyeccionDto }

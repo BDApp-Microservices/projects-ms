@@ -235,6 +235,20 @@ export class ProyeccionService {
   }
 
   /**
+   * Obtiene proyecciones filtradas por tipo de proyección y producto
+   */
+  async findByTipoAndProducto(tipoProyeccion: string, idProducto: string): Promise<Proyeccion[]> {
+    return await this.proyeccionRepository
+      .createQueryBuilder('proyeccion')
+      .leftJoinAndSelect('proyeccion.idProyectoProducto', 'proyectoProducto')
+      .leftJoinAndSelect('proyeccion.proyeccionesSemanales', 'proyeccionesSemanales')
+      .where('proyeccion.tipo_proyeccion = :tipoProyeccion', { tipoProyeccion })
+      .andWhere('proyectoProducto.id_producto = :idProducto', { idProducto })
+      .orderBy('proyeccion.fechaCreacion', 'DESC')
+      .getMany();
+  }
+
+  /**
    * Actualiza una proyección existente
    * 
    * Tipos de actualización:

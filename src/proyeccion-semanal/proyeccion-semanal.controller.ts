@@ -6,7 +6,9 @@ import { UpdateProyeccionSemanalDto } from './dto/update-proyeccion-semanal.dto'
 
 @Controller()
 export class ProyeccionSemanalController {
-  constructor(private readonly proyeccionSemanalService: ProyeccionSemanalService) {}
+  constructor(
+    private readonly proyeccionSemanalService: ProyeccionSemanalService)
+  { }
 
   @MessagePattern('createProyeccionSemanal')
   create(@Payload() createProyeccionSemanalDto: CreateProyeccionSemanalDto) {
