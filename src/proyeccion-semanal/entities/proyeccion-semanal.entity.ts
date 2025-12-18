@@ -21,7 +21,7 @@ export class ProyeccionSemanal {
     // Relaciones
 
     @ManyToOne(() => Proyeccion, proyeccion => proyeccion.proyeccionesSemanales, {
-        onDelete: 'CASCADE'
+        nullable: false
     })
     @JoinColumn({ name: 'id_proyeccion', referencedColumnName: 'idProyeccion' })
     idProyeccion: Proyeccion;

@@ -7,9 +7,8 @@ import { UpdateProyeccionDto } from './dto/update-proyeccion.dto';
 import { Proyeccion } from './entities/proyeccion.entity';
 import { ProyeccionSemanal } from 'src/proyeccion-semanal/entities/proyeccion-semanal.entity';
 import { ProyectoProducto } from 'src/proyecto-producto/entities/proyecto-producto.entity';
-import { Proyecto } from 'src/proyecto/entities/proyecto.entity';
 import { ProductoClientService } from 'src/common/services/producto-client.service';
-import { getWeekNumber, getNextMonday, formatDateLocal, addDays } from 'src/common/utils/date.utils';
+import { getWeekNumber, getNextMonday, addDays } from 'src/common/utils/date.utils';
 
 @Injectable()
 export class ProyeccionService {
@@ -23,6 +22,19 @@ export class ProyeccionService {
     private readonly productoClientService: ProductoClientService,
     private readonly dataSource: DataSource,
   ) { }
+
+  /**
+   * Parsea una fecha (Date o string) a Date en hora local sin conversión UTC
+   */
+  private parseDateLocal(fecha: Date | string): Date {
+    if (fecha instanceof Date) {
+      return fecha;
+    }
+    // Si es string "YYYY-MM-DD" o "YYYY-MM-DDTHH:mm:ss"
+    const fechaStr = String(fecha).split('T')[0];
+    const [year, month, day] = fechaStr.split('-').map(Number);
+    return new Date(year, month - 1, day);
+  }
 
   /**
    * Crea una nueva proyección con sus proyecciones semanales
@@ -309,7 +321,7 @@ export class ProyeccionService {
   /**
    * Elimina una proyección y sus proyecciones semanales (cascada)
    */
-  async remove(id: string): Promise<void> {
+  async remove(id: string): Promise<{ message: string }> {
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
@@ -317,17 +329,19 @@ export class ProyeccionService {
     try {
       const proyeccion = await this.findOne(id);
 
-      // Eliminar primero las proyecciones semanales
-      if (proyeccion.proyeccionesSemanales && proyeccion.proyeccionesSemanales.length > 0) {
-        await queryRunner.manager.delete(ProyeccionSemanal, {
-          idProyeccion: { idProyeccion: proyeccion.idProyeccion }
-        });
-      }
+      // Eliminar primero las proyecciones semanales usando el formato correcto
+      await queryRunner.manager.delete(ProyeccionSemanal, {
+        idProyeccion: { idProyeccion: proyeccion.idProyeccion }
+      });
 
       // Eliminar la proyección
-      await queryRunner.manager.delete(Proyeccion, { idProyeccion: id });
+      await queryRunner.manager.delete(Proyeccion, {
+        idProyeccion: id
+      });
 
       await queryRunner.commitTransaction();
+
+      return { message: 'Proyección eliminada correctamente' };
     } catch (error) {
       await queryRunner.rollbackTransaction();
 
@@ -370,8 +384,8 @@ export class ProyeccionService {
       return 'INOFENSIVO';
     }
 
-    // Si cambia pisosSemana, es estructural
-    if (cambios.some(campo => campo === 'pisosSemana')) {
+    // Si cambia pisosSemana, pisos, sotanos, total o fechaInicio, es estructural
+    if (cambios.some(campo => ['pisosSemana', 'pisos', 'sotanos', 'total', 'fechaInicio'].includes(campo))) {
       return 'ESTRUCTURAL';
     }
 
@@ -384,12 +398,16 @@ export class ProyeccionService {
    */
   private detectarCambios(proyeccionActual: Proyeccion, updateDto: UpdateProyeccionDto): string[] {
     const camposCambiados: string[] = [];
-    const camposComparar = ['estado', 'tipoProyeccion', 'pisosSemana'];
+    const camposComparar = ['estado', 'tipoProyeccion', 'pisosSemana', 'pisos', 'sotanos', 'total', 'fechaInicio'];
 
     camposComparar.forEach(campo => {
       if (updateDto[campo] !== undefined && updateDto[campo] !== null) {
-        const valorActual = String(proyeccionActual[campo]);
-        const valorNuevo = String(updateDto[campo]);
+        const valorActual = campo === 'fechaInicio'
+          ? new Date(proyeccionActual[campo]).toISOString().split('T')[0]
+          : String(proyeccionActual[campo]);
+        const valorNuevo = campo === 'fechaInicio'
+          ? new Date(updateDto[campo]).toISOString().split('T')[0]
+          : String(updateDto[campo]);
 
         if (valorActual !== valorNuevo) {
           camposCambiados.push(campo);
@@ -441,60 +459,63 @@ export class ProyeccionService {
     updateDto: UpdateProyeccionDto,
     queryRunner: any
   ): Promise<Proyeccion> {
-    // 1. Obtener datos actualizados (sin relaciones, idProyecto es string)
-    const proyectoProducto = await this.proyectoProductoRepository.findOne({
-      where: { idProyectoProducto: proyeccion.idProyectoProducto.idProyectoProducto }
-    });
+    // 1. Preservar el ID original
+    const idProyeccionOriginal = proyeccion.idProyeccion;
 
-    if (!proyectoProducto) {
+    if (!idProyeccionOriginal) {
       throw new RpcException({
-        message: 'ProyectoProducto no encontrado',
-        statusCode: HttpStatus.NOT_FOUND,
+        message: 'ID de proyección no válido para actualización estructural',
+        statusCode: HttpStatus.BAD_REQUEST,
       });
     }
 
-    // Cargar el proyecto usando el idProyecto (string)
-    const proyecto = await queryRunner.manager.findOne(Proyecto, {
-      where: { idProyecto: proyectoProducto.idProyecto }
-    });
+    // 2. Obtener unidad de medida existente
+    const unidad = proyeccion.proyeccionesSemanales && proyeccion.proyeccionesSemanales.length > 0
+      ? proyeccion.proyeccionesSemanales[0].unidad
+      : 'UND';
 
-    if (!proyecto) {
-      throw new RpcException({
-        message: 'Proyecto no encontrado',
-        statusCode: HttpStatus.NOT_FOUND,
-      });
-    }
+    // 3. Usar datos del DTO si están presentes, sino mantener los actuales
+    const pisos = updateDto.pisos !== undefined ? updateDto.pisos : proyeccion.pisos;
+    const sotanos = updateDto.sotanos !== undefined ? updateDto.sotanos : proyeccion.sotanos;
 
-    const pisos = proyecto.pisos || 0;
-    const sotanos = proyecto.sotanos || 0;
-    const fechaInicio = new Date(proyecto.fechaTentativa);
-    const total = proyectoProducto.cantidad;
-    const pisosSemana = updateDto.pisosSemana || proyeccion.pisosSemana;
+    // Parsear fechaInicio correctamente en hora local
+    const fechaInicio = updateDto.fechaInicio
+      ? this.parseDateLocal(updateDto.fechaInicio)
+      : this.parseDateLocal(proyeccion.fechaInicio);
 
-    // 2. Obtener unidad del producto
-    const unidad = await this.productoClientService.getUnidadMedida(proyectoProducto.idProducto);
+    const total = updateDto.total !== undefined ? updateDto.total : proyeccion.total;
+    const pisosSemana = updateDto.pisosSemana !== undefined ? updateDto.pisosSemana : proyeccion.pisosSemana;
 
-    // 3. Recalcular metrado por piso
+    // 4. Calcular metrado por piso
     const metradoPiso = total / ((pisos + sotanos) / pisosSemana);
     const numeroSemanas = Math.ceil((pisos + sotanos) / pisosSemana);
 
-    // 4. Actualizar campos de la proyección
-    proyeccion.metradoPiso = parseFloat(metradoPiso.toFixed(2));
-    proyeccion.pisos = pisos;
-    proyeccion.sotanos = sotanos;
-    proyeccion.pisosSemana = pisosSemana;
-    proyeccion.total = total;
-    proyeccion.fechaInicio = fechaInicio;
+    // 5. Crear NUEVA instancia de Proyeccion con datos actualizados
+    const nuevaProyeccion = new Proyeccion();
+    nuevaProyeccion.idProyeccion = idProyeccionOriginal;
 
-    if (updateDto.estado) proyeccion.estado = updateDto.estado;
-    if (updateDto.tipoProyeccion) proyeccion.tipoProyeccion = updateDto.tipoProyeccion;
+    // Copiar campos inmutables (relaciones)
+    nuevaProyeccion.idProyectoProducto = proyeccion.idProyectoProducto;
 
-    // 5. Eliminar semanas existentes
+    // Aplicar campos actualizados
+    nuevaProyeccion.fechaInicio = fechaInicio;
+    nuevaProyeccion.pisos = pisos;
+    nuevaProyeccion.sotanos = sotanos;
+    nuevaProyeccion.pisosSemana = pisosSemana;
+    nuevaProyeccion.total = total;
+    nuevaProyeccion.metradoPiso = parseFloat(metradoPiso.toFixed(2));
+    nuevaProyeccion.estado = updateDto.estado || proyeccion.estado;
+    nuevaProyeccion.tipoProyeccion = updateDto.tipoProyeccion || proyeccion.tipoProyeccion;
+
+    // 6. Eliminar semanas existentes
     await queryRunner.manager.delete(ProyeccionSemanal, {
-      idProyeccion: { idProyeccion: proyeccion.idProyeccion }
+      idProyeccion: { idProyeccion: idProyeccionOriginal }
     });
 
-    // 6. Generar nuevas semanas
+    // 7. Guardar la nueva proyección PRIMERO
+    const proyeccionGuardada = await queryRunner.manager.save(Proyeccion, nuevaProyeccion);
+
+    // 8. Generar y guardar nuevas semanas UNA POR UNA
     let fechaSemana = getNextMonday(fechaInicio);
     const proyeccionesSemanales: ProyeccionSemanal[] = [];
 
@@ -506,19 +527,25 @@ export class ProyeccionService {
         fecha: new Date(fechaSemana),
         cantidad: parseFloat(metradoPiso.toFixed(2)),
         unidad: unidad,
-        idProyeccion: proyeccion
       });
 
+      // Asignar la relación con la proyección guardada
+      proyeccionSemanal.idProyeccion = proyeccionGuardada;
+
+      // Guardar cada semana individualmente
+      await queryRunner.manager.save(ProyeccionSemanal, proyeccionSemanal);
       proyeccionesSemanales.push(proyeccionSemanal);
+
       fechaSemana = addDays(fechaSemana, 7);
     }
 
-    await queryRunner.manager.save(ProyeccionSemanal, proyeccionesSemanales);
+    // 9. Actualizar fechaFin
+    if (proyeccionesSemanales.length > 0) {
+      const ultimaSemana = proyeccionesSemanales[proyeccionesSemanales.length - 1];
+      proyeccionGuardada.fechaFin = ultimaSemana.fecha;
+      return await queryRunner.manager.save(Proyeccion, proyeccionGuardada);
+    }
 
-    // 7. Actualizar fechaFin
-    const ultimaSemana = proyeccionesSemanales[proyeccionesSemanales.length - 1];
-    proyeccion.fechaFin = ultimaSemana.fecha;
-
-    return await queryRunner.manager.save(Proyeccion, proyeccion);
+    return proyeccionGuardada;
   }
 }
