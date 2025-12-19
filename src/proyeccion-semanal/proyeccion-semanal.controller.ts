@@ -7,8 +7,7 @@ import { UpdateProyeccionSemanalDto } from './dto/update-proyeccion-semanal.dto'
 @Controller()
 export class ProyeccionSemanalController {
   constructor(
-    private readonly proyeccionSemanalService: ProyeccionSemanalService)
-  { }
+    private readonly proyeccionSemanalService: ProyeccionSemanalService) { }
 
   @MessagePattern('createProyeccionSemanal')
   create(@Payload() createProyeccionSemanalDto: CreateProyeccionSemanalDto) {
@@ -23,6 +22,11 @@ export class ProyeccionSemanalController {
   @MessagePattern('findOneProyeccionSemanal')
   findOne(@Payload() id: number) {
     return this.proyeccionSemanalService.findOne(id);
+  }
+
+  @MessagePattern({ cmd: 'findByProyeccion.proyeccionSemanal' })
+  findByProyeccion(@Payload() idProyeccion: string) {
+    return this.proyeccionSemanalService.findByProyeccion(idProyeccion);
   }
 
   @MessagePattern('updateProyeccionSemanal')

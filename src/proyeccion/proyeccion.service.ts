@@ -193,7 +193,7 @@ export class ProyeccionService {
    */
   async findAll(): Promise<Proyeccion[]> {
     return await this.proyeccionRepository.find({
-      relations: ['idProyectoProducto', 'proyeccionesSemanales'],
+      relations: ['idProyectoProducto', 'proyeccionesSemanales', 'idProyectoProducto.idProyecto'],
       order: {
         fechaCreacion: 'DESC'
       }
