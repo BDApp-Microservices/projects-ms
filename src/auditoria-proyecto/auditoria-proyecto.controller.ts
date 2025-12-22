@@ -19,13 +19,14 @@ export class AuditoriaProyectoController {
   }
 
   @MessagePattern('findOneAuditoriaProyecto')
-  findOne(@Payload() id: number) {
+  findOne(@Payload() id: string) {
     return this.auditoriaProyectoService.findOne(id);
   }
 
   @MessagePattern('updateAuditoriaProyecto')
-  update(@Payload() updateAuditoriaProyectoDto: UpdateAuditoriaProyectoDto) {
-    return this.auditoriaProyectoService.update(updateAuditoriaProyectoDto.id, updateAuditoriaProyectoDto);
+  update(@Payload() payload: { id: string } & UpdateAuditoriaProyectoDto) {
+    const { id, ...updateData } = payload;
+    return this.auditoriaProyectoService.update(id, updateData);
   }
 
   @MessagePattern('removeAuditoriaProyecto')

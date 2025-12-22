@@ -62,4 +62,10 @@ export class CreateProyectoDto {
     @IsUUID('4')
     @IsNotEmpty()
     idComercial: string;
+
+    @IsOptional()
+    idIngeniero?: string;
+
+    @IsOptional()
+    idOficinaTecnica?: string;
 }
