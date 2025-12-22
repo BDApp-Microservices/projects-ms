@@ -84,4 +84,14 @@ export class ProyeccionController {
   remove(@Payload() id: string) {
     return this.proyeccionService.remove(id);
   }
+
+  /**
+   * Obtiene resumen de proyecciones agrupado por producto y estado
+   * Comando: { cmd: 'getResumen.proyeccion' }
+   * Payload: { anio?: number, idProducto?: string, estado?: string }
+   */
+  @MessagePattern({ cmd: 'getResumen.proyeccion' })
+  getResumen(@Payload() data: { anio?: number; idProducto?: string; estado?: string }) {
+    return this.proyeccionService.getResumenProyecciones(data.anio, data.idProducto, data.estado);
+  }
 }

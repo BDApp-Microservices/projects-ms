@@ -548,4 +548,71 @@ export class ProyeccionService {
 
     return proyeccionGuardada;
   }
+
+  /**
+   * Obtiene resumen de proyecciones agrupado por producto y estado
+   * Retorna todas las proyecciones semanales con sus relaciones para que el frontend las agrupe
+   * 
+   * @param anio - Año para filtrar (opcional)
+   * @param idProducto - ID del producto para filtrar (opcional)
+   * @param estado - Estado de la proyección para filtrar (opcional)
+   * @returns Array de proyecciones semanales con sus relaciones
+   */
+  async getResumenProyecciones(anio?: number, idProducto?: string, estado?: string): Promise<any[]> {
+    try {
+      const queryBuilder = this.proyeccionSemanalRepository
+        .createQueryBuilder('ps')
+        .leftJoinAndSelect('ps.idProyeccion', 'p')
+        .leftJoinAndSelect('p.idProyectoProducto', 'pp')
+        .orderBy('ps.fecha', 'ASC')
+        .addOrderBy('ps.numeroSemana', 'ASC');
+
+      // Filtro por año (usando la fecha de proyeccion_semanal)
+      if (anio) {
+        queryBuilder.andWhere('EXTRACT(YEAR FROM ps.fecha) = :anio', { anio });
+      }
+
+      // Filtro por producto (necesitamos obtener desde dispatch-ms)
+      if (idProducto) {
+        queryBuilder.andWhere('pp.id_producto = :idProducto', { idProducto });
+      }
+
+      // Filtro por estado
+      if (estado) {
+        queryBuilder.andWhere('p.estado = :estado', { estado });
+      }
+
+      const proyeccionesSemanales = await queryBuilder.getMany();
+
+      // Enriquecer con datos del producto desde dispatch-ms
+      const proyeccionesConProducto = await Promise.all(
+        proyeccionesSemanales.map(async (ps) => {
+          const idProductoRef = ps.idProyeccion?.idProyectoProducto?.idProducto;
+          let producto: any = null;
+
+          if (idProductoRef) {
+            try {
+              const response = await this.productoClientService.getProducto(idProductoRef);
+              // Extraer solo la data del producto si viene envuelta en un objeto de respuesta
+              producto = response?.data || response;
+            } catch (error) {
+              // Silenciar error si el producto no se encuentra
+            }
+          }
+
+          return {
+            ...ps,
+            producto: producto,
+          };
+        }),
+      );
+
+      return proyeccionesConProducto;
+    } catch (error) {
+      throw new RpcException({
+        message: `Error al obtener el resumen de proyecciones: ${error.message}`,
+        statusCode: HttpStatus.BAD_REQUEST,
+      });
+    }
+  }
 }

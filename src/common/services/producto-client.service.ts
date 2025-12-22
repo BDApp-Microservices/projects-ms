@@ -1,6 +1,6 @@
 import { Injectable, Inject } from '@nestjs/common';
 import { ClientProxy, RpcException } from '@nestjs/microservices';
-import { firstValueFrom, catchError, throwError } from 'rxjs';
+import { firstValueFrom, catchError } from 'rxjs';
 import { NATS_SERVICE } from 'src/config';
 
 /**
@@ -11,7 +11,7 @@ import { NATS_SERVICE } from 'src/config';
 export class ProductoClientService {
   constructor(
     @Inject(NATS_SERVICE) private readonly client: ClientProxy
-  ) {}
+  ) { }
 
   /**
    * Obtiene un producto por su ID desde el microservicio dispatch-ms
@@ -23,7 +23,7 @@ export class ProductoClientService {
   async getProducto(idProducto: string) {
     try {
       return await firstValueFrom(
-        this.client.send({ cmd: 'get.producto' }, { idProducto }).pipe(
+        this.client.send('findOneProducto', idProducto).pipe(
           catchError(error => {
             throw new RpcException({
               status: error.status || 400,
