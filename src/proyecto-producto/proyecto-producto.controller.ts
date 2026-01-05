@@ -4,25 +4,41 @@ import { ProyectoProductoService } from './proyecto-producto.service';
 
 @Controller()
 export class ProyectoProductoController {
-  constructor(private readonly proyectoProductoService: ProyectoProductoService) { }
+  constructor(
+    private readonly proyectoProductoService: ProyectoProductoService,
+  ) {}
 
   @MessagePattern('findProductosByProyecto')
   findByProyecto(@Payload() idProyecto: string) {
     return this.proyectoProductoService.findByProyecto(idProyecto);
   }
 
+  @MessagePattern('findAllProyectoProducto')
+  findAll(@Payload() payload?: { includeInactive?: boolean }) {
+    const includeInactive = payload?.includeInactive ?? true;
+    return this.proyectoProductoService.findAll(includeInactive);
+  }
+
+  @MessagePattern('findOneProyectoProducto')
+  findOne(@Payload() idProyectoProducto: string) {
+    return this.proyectoProductoService.findOne(idProyectoProducto);
+  }
+
+  @MessagePattern('updateProyectoProducto')
+  update(@Payload() payload: { idProyectoProducto: string; data: any }) {
+    return this.proyectoProductoService.update(
+      payload.idProyectoProducto,
+      payload.data,
+    );
+  }
+
   @MessagePattern('softDeleteProyectoProducto')
-  softDelete(@Payload() payload: { idProyecto: string; idProducto: string }) {
-    return this.proyectoProductoService.softDelete(payload.idProyecto, payload.idProducto);
+  softDelete(@Payload() idProyectoProducto: string) {
+    return this.proyectoProductoService.softDelete(idProyectoProducto);
   }
 
   @MessagePattern('reactivateProyectoProducto')
-  reactivate(@Payload() payload: { idProyecto: string; idProducto: string }) {
-    return this.proyectoProductoService.reactivate(payload.idProyecto, payload.idProducto);
-  }
-
-  @MessagePattern('updateCantidadProyectoProducto')
-  updateCantidad(@Payload() payload: { idProyecto: string; idProducto: string; cantidad: number }) {
-    return this.proyectoProductoService.updateCantidad(payload.idProyecto, payload.idProducto, payload.cantidad);
+  reactivate(@Payload() idProyectoProducto: string) {
+    return this.proyectoProductoService.reactivate(idProyectoProducto);
   }
 }

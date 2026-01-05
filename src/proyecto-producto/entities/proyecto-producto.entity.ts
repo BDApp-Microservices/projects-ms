@@ -42,6 +42,29 @@ export class ProyectoProducto {
   })
   fechaDesactivacion: Date | null;
 
+  // Campos nuevos para seguimiento de costos
+
+  // Fecha aproximada de envio de la cotizacion
+  @Column('date', { name: 'fecha_aprox_envio', nullable: true })
+  fechaAproxEnvio: Date;
+
+  @Column('varchar', { name: 'actividad', length: 20, nullable: true })
+  actividad: string; // COTIZACION, ACTUALIZACION
+
+  @Column('text', { name: 'observaciones', nullable: true })
+  observaciones: string;
+
+  @Column('varchar', { name: 'estado', length: 20, nullable: true })
+  estado: string; // PENDIENTE, PROCESO, ENVIADO, NO_COTIZAR, EN_PAUSA
+
+  @Column('varchar', { name: 'sistema_inicial', length: 50, nullable: true })
+  sistemaInicial: string;
+
+  // Fecha real de envio de la cotizacion
+  @Column('date', { name: 'fecha_envio', nullable: true })
+  fechaEnvio: Date;
+
+
   // Relaciones
 
   @ManyToOne(() => Proyecto, proyecto => proyecto.proyectoProductos)
@@ -50,6 +73,10 @@ export class ProyectoProducto {
 
   @Column('uuid', { name: 'id_producto' }) // Relacion logica
   idProducto: string;
+
+  // Usuario que elaboro la cotizacion
+  @Column('uuid', { name: 'elaborado_por', nullable: true })
+  elaboradoPor: string; // Relacion logica
 
   // Proyecciones asociadas al proyecto-producto
   @OneToMany(() => Proyeccion, proyeccion => proyeccion.idProyectoProducto)

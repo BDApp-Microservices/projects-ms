@@ -23,7 +23,7 @@ export class ProyectoService {
     private clienteService: ClienteService,
     private auditoriaProyectoService: AuditoriaProyectoService,
     @Inject(NATS_SERVICE) private readonly clientDispatch: ClientProxy,
-  ) { }
+  ) {}
 
   async findAll(): Promise<BaseResponseDto<Proyecto[]>> {
     try {
@@ -77,7 +77,9 @@ export class ProyectoService {
     }
   }
 
-  async findByComercial(idComercial: string): Promise<BaseResponseDto<Proyecto[]>> {
+  async findByComercial(
+    idComercial: string,
+  ): Promise<BaseResponseDto<Proyecto[]>> {
     try {
       const proyectos = await this.proyectoRepo.find({
         where: { idComercial },
@@ -93,6 +95,42 @@ export class ProyectoService {
     } catch (error) {
       throw new RpcException({
         message: 'Error al obtener proyectos del comercial',
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        error: error.message,
+      });
+    }
+  }
+
+  /**
+   * Obtiene múltiples proyectos por sus IDs (para consultas en lote)
+   */
+  async findByIds(ids: string[]): Promise<BaseResponseDto<Proyecto[]>> {
+    try {
+      if (!ids || ids.length === 0) {
+        return BaseResponseDto.success([], 'No se proporcionaron IDs', 200);
+      }
+
+      // Filtrar IDs válidos (no vacíos)
+      const validIds = ids.filter((id) => id && id.trim() !== '');
+
+      if (validIds.length === 0) {
+        return BaseResponseDto.success([], 'No hay IDs válidos', 200);
+      }
+
+      const proyectos = await this.proyectoRepo
+        .createQueryBuilder('proyecto')
+        .leftJoinAndSelect('proyecto.idCliente', 'cliente')
+        .where('proyecto.idProyecto IN (:...ids)', { ids: validIds })
+        .getMany();
+
+      return BaseResponseDto.success(
+        proyectos,
+        `${proyectos.length} proyecto(s) obtenido(s) exitosamente`,
+        200,
+      );
+    } catch (error) {
+      throw new RpcException({
+        message: 'Error al obtener proyectos por IDs',
         statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
         error: error.message,
       });
@@ -187,7 +225,10 @@ export class ProyectoService {
         };
 
         // Solo agregar proyectoCUP si tiene valor
-        if (createDto.proyecto.proyectoCUP && createDto.proyecto.proyectoCUP.trim() !== '') {
+        if (
+          createDto.proyecto.proyectoCUP &&
+          createDto.proyecto.proyectoCUP.trim() !== ''
+        ) {
           proyectoData.proyectoCUP = createDto.proyecto.proyectoCUP;
         }
 
@@ -207,7 +248,10 @@ export class ProyectoService {
               productosConfig = response.data;
             }
           } catch (error) {
-            console.error('Error al obtener configuración de productos:', error);
+            console.error(
+              'Error al obtener configuración de productos:',
+              error,
+            );
             // Continuar sin cálculo de comisiones si falla
           }
         }
@@ -221,7 +265,11 @@ export class ProyectoService {
 
             let comisionEstimada = 0;
 
-            if (productoInfo && productoInfo.configuracionesComision && productoInfo.configuracionesComision.length > 0) {
+            if (
+              productoInfo &&
+              productoInfo.configuracionesComision &&
+              productoInfo.configuracionesComision.length > 0
+            ) {
               // Asumimos que hay una configuración activa, tomamos la primera
               const config = productoInfo.configuracionesComision[0]; // Deberíamos filtrar por activa si hay múltiples
 
@@ -245,7 +293,10 @@ export class ProyectoService {
                   // Deberíamos usar ese campo.
 
                   let tipoCliente = 'NUEVO';
-                  if (!createDto.esProyectoNuevo && createDto.idClienteExistente) {
+                  if (
+                    !createDto.esProyectoNuevo &&
+                    createDto.idClienteExistente
+                  ) {
                     // Si el cliente ya existía, asumimos que su tipoCliente es el que tiene en BD.
                     // Como no tenemos el objeto cliente completo aquí (solo id), podríamos haberlo traído antes.
                     // En el paso 1 (Manejar cliente), ya verificamos el cliente existente.
@@ -255,18 +306,17 @@ export class ProyectoService {
                     tipoCliente = 'ANTIGUO';
                   }
 
-                  const tarifa = tipoCliente === 'NUEVO'
-                    ? (config.tarifaClienteNuevo || 0.20)
-                    : (config.tarifaClienteAntiguo || 0.15);
+                  const tarifa =
+                    tipoCliente === 'NUEVO'
+                      ? config.tarifaClienteNuevo || 0.2
+                      : config.tarifaClienteAntiguo || 0.15;
 
                   comisionEstimada = cantidad * tarifa;
-
                 } else if (config.tipoCalculo === 'POR_UNIDAD') {
                   // Previgas, Frisos, Sardinel, Muros (m2 o ml)
                   // Tarifa fija * cantidad
                   const tarifa = config.tarifaFija || 0;
                   comisionEstimada = cantidad * tarifa;
-
                 } else if (config.tipoCalculo === 'PORCENTAJE_PRECIO') {
                   // Escaleras: % del precio unitario
                   // La regla dice: "3% del precio unitario".
@@ -278,7 +328,6 @@ export class ProyectoService {
                   // "Si una escalera vale 1000...". Si son 2 escaleras, serían 2000 y comisión 60.
                   // Asumiremos que la comisión es por unidad vendida.
                   comisionEstimada = comisionEstimada * cantidad;
-
                 } else if (config.tipoCalculo === 'PORCENTAJE_MARGEN') {
                   // Acero: 10% de (precio venta - precio base)
                   // Se calcula en dólares, pero el sistema maneja soles?
@@ -434,7 +483,10 @@ export class ProyectoService {
               productosConfig = response.data;
             }
           } catch (error) {
-            console.error('Error al obtener configuración de productos:', error);
+            console.error(
+              'Error al obtener configuración de productos:',
+              error,
+            );
           }
 
           const proyectoProductos = productos.map((productoDto) => {
@@ -444,7 +496,11 @@ export class ProyectoService {
 
             let comisionEstimada = 0;
 
-            if (productoInfo && productoInfo.configuracionesComision && productoInfo.configuracionesComision.length > 0) {
+            if (
+              productoInfo &&
+              productoInfo.configuracionesComision &&
+              productoInfo.configuracionesComision.length > 0
+            ) {
               const config = productoInfo.configuracionesComision[0];
 
               if (config.activo) {
@@ -455,26 +511,27 @@ export class ProyectoService {
                 if (config.aplicaTipoCliente) {
                   // Recuperamos el tipo de cliente del proyecto
                   let tipoCliente = 'ANTIGUO'; // Default
-                  if (proyecto.idCliente && typeof proyecto.idCliente === 'object') {
+                  if (
+                    proyecto.idCliente &&
+                    typeof proyecto.idCliente === 'object'
+                  ) {
                     // @ts-ignore
                     tipoCliente = proyecto.idCliente.tipoCliente || 'ANTIGUO';
                   }
 
-                  const tarifa = tipoCliente === 'NUEVO'
-                    ? (config.tarifaClienteNuevo || 0.20)
-                    : (config.tarifaClienteAntiguo || 0.15);
+                  const tarifa =
+                    tipoCliente === 'NUEVO'
+                      ? config.tarifaClienteNuevo || 0.2
+                      : config.tarifaClienteAntiguo || 0.15;
 
                   comisionEstimada = cantidad * tarifa;
-
                 } else if (config.tipoCalculo === 'POR_UNIDAD') {
                   const tarifa = config.tarifaFija || 0;
                   comisionEstimada = cantidad * tarifa;
-
                 } else if (config.tipoCalculo === 'PORCENTAJE_PRECIO') {
                   const porcentaje = config.porcentaje || 0;
                   comisionEstimada = (precioVenta * porcentaje) / 100;
                   comisionEstimada = comisionEstimada * cantidad;
-
                 } else if (config.tipoCalculo === 'PORCENTAJE_MARGEN') {
                   const precioBase = config.precioBase || 770;
                   const porcentaje = config.porcentaje || 10;
@@ -533,7 +590,11 @@ export class ProyectoService {
    */
   async addProductos(
     idProyecto: string,
-    productos: Array<{ idProducto: string; cantidad?: number; precioVenta?: number }>,
+    productos: Array<{
+      idProducto: string;
+      cantidad?: number;
+      precioVenta?: number;
+    }>,
   ): Promise<BaseResponseDto<ProyectoProducto[]>> {
     return await this.dataSource.transaction(async (manager) => {
       try {
@@ -555,8 +616,10 @@ export class ProyectoService {
           where: { idProyecto },
         });
 
-        const idsExistentes = productosExistentes.map(p => p.idProducto);
-        const productosNuevos = productos.filter(p => !idsExistentes.includes(p.idProducto));
+        const idsExistentes = productosExistentes.map((p) => p.idProducto);
+        const productosNuevos = productos.filter(
+          (p) => !idsExistentes.includes(p.idProducto),
+        );
 
         if (productosNuevos.length === 0) {
           return {
@@ -589,7 +652,11 @@ export class ProyectoService {
 
           let comisionEstimada = 0;
 
-          if (productoInfo && productoInfo.configuracionesComision && productoInfo.configuracionesComision.length > 0) {
+          if (
+            productoInfo &&
+            productoInfo.configuracionesComision &&
+            productoInfo.configuracionesComision.length > 0
+          ) {
             const config = productoInfo.configuracionesComision[0];
 
             if (config.activo) {
@@ -599,28 +666,33 @@ export class ProyectoService {
 
               if (config.aplicaTipoCliente) {
                 let tipoCliente = 'ANTIGUO';
-                if (proyecto.idCliente && typeof proyecto.idCliente === 'object') {
+                if (
+                  proyecto.idCliente &&
+                  typeof proyecto.idCliente === 'object'
+                ) {
                   // @ts-ignore
                   tipoCliente = proyecto.idCliente.tipoCliente || 'ANTIGUO';
                 }
 
-                const tarifa = tipoCliente === 'NUEVO'
-                  ? (config.tarifaClienteNuevo || 0.20)
-                  : (config.tarifaClienteAntiguo || 0.15);
+                const tarifa =
+                  tipoCliente === 'NUEVO'
+                    ? config.tarifaClienteNuevo || 0.2
+                    : config.tarifaClienteAntiguo || 0.15;
 
                 comisionEstimada = cantidad * tarifa;
-
               } else if (config.tipoCalculo === 'POR_UNIDAD') {
                 const tarifa = config.tarifaFija || 0;
                 comisionEstimada = cantidad * tarifa;
-
               } else if (config.tipoCalculo === 'PORCENTAJE_PRECIO') {
                 const porcentaje = config.porcentaje || 0;
                 comisionEstimada = (cantidad * precioBase * porcentaje) / 100;
-
               } else if (config.tipoCalculo === 'PORCENTAJE_MARGEN') {
                 const porcentaje = config.porcentaje || 0;
-                comisionEstimada = (((cantidad / 1000) * (precioVenta - precioBase)) * porcentaje) / 100;
+                comisionEstimada =
+                  ((cantidad / 1000) *
+                    (precioVenta - precioBase) *
+                    porcentaje) /
+                  100;
               }
             }
           }
@@ -635,7 +707,10 @@ export class ProyectoService {
           });
         });
 
-        const nuevosProductos = await manager.save(ProyectoProducto, proyectoProductos);
+        const nuevosProductos = await manager.save(
+          ProyectoProducto,
+          proyectoProductos,
+        );
 
         return {
           success: true,

@@ -13,10 +13,11 @@ export class ProyectoProductoService {
     @InjectRepository(ProyectoProducto)
     private readonly proyectoProductoRepository: Repository<ProyectoProducto>,
     @Inject(NATS_SERVICE) private readonly clientDispatch: ClientProxy,
-  ) { }
+  ) {}
 
   async createMany(createDtos: CreateProyectoProductoDto[]) {
-    const proyectoProductos = this.proyectoProductoRepository.create(createDtos);
+    const proyectoProductos =
+      this.proyectoProductoRepository.create(createDtos);
     return await this.proyectoProductoRepository.save(proyectoProductos);
   }
 
@@ -30,26 +31,175 @@ export class ProyectoProductoService {
 
     return await this.proyectoProductoRepository.find({
       where: whereCondition,
+      relations: ['idProyecto'],
       order: {
         estaActivo: 'DESC', // Activos primero
       },
     });
   }
 
+  async findAll(includeInactive = true) {
+    const whereCondition: any = {};
+
+    // Por defecto, mostrar todos los productos (activos e inactivos)
+    if (!includeInactive) {
+      whereCondition.estaActivo = true;
+    }
+
+    return await this.proyectoProductoRepository.find({
+      where: whereCondition,
+      relations: ['idProyecto'],
+    });
+  }
+
+  async findOne(idProyectoProducto: string) {
+    const proyectoProducto = await this.proyectoProductoRepository.findOne({
+      where: { idProyectoProducto },
+      relations: ['idProyecto', 'idProducto'],
+    });
+
+    if (!proyectoProducto) {
+      throw new Error('Producto no encontrado');
+    }
+
+    return proyectoProducto;
+  }
+
+  async update(
+    idProyectoProducto: string,
+    updateData: Partial<ProyectoProducto>,
+  ) {
+    // Cargar con relaciones necesarias para el cálculo de comisiones
+    const proyectoProducto = await this.proyectoProductoRepository.findOne({
+      where: { idProyectoProducto },
+      relations: ['idProyecto', 'idProyecto.idCliente'],
+    });
+
+    if (!proyectoProducto) {
+      throw new Error('Producto no encontrado');
+    }
+
+    // Verificar si se está actualizando cantidad o precioVenta para recalcular comisión
+    const shouldRecalculateCommission =
+      updateData.cantidad !== undefined || updateData.precioVenta !== undefined;
+
+    // Actualizar campos
+    Object.assign(proyectoProducto, updateData);
+
+    // Recalcular comisión si es necesario
+    if (shouldRecalculateCommission) {
+      const comisionEstimada = await this.calcularComision(proyectoProducto);
+      proyectoProducto.comisionEstimada = parseFloat(
+        comisionEstimada.toFixed(2),
+      );
+    }
+
+    return await this.proyectoProductoRepository.save(proyectoProducto);
+  }
+
+  /**
+   * Calcula la comisión estimada basada en la configuración del producto
+   */
+  private async calcularComision(
+    proyectoProducto: ProyectoProducto,
+  ): Promise<number> {
+    const idProducto = proyectoProducto.idProducto;
+    const cantidad = proyectoProducto.cantidad || 0;
+    const precioVenta = proyectoProducto.precioVenta || 0;
+
+    if (cantidad <= 0) {
+      return 0;
+    }
+
+    try {
+      // Obtener configuración del producto desde dispatch-ms
+      const response = await firstValueFrom(
+        this.clientDispatch.send('findProductosByIds', [idProducto]),
+      );
+
+      if (!response?.success || !response?.data?.length) {
+        return 0;
+      }
+
+      const productoInfo = response.data[0];
+
+      if (!productoInfo.configuracionesComision?.length) {
+        return 0;
+      }
+
+      const config = productoInfo.configuracionesComision[0];
+
+      if (!config.activo) {
+        return 0;
+      }
+
+      const precioBase = config.precioBase || 0;
+
+      // Cálculo según tipo de cliente
+      if (config.aplicaTipoCliente) {
+        let tipoCliente = 'ANTIGUO';
+        const proyecto = proyectoProducto.idProyecto as any;
+        if (proyecto?.idCliente && typeof proyecto.idCliente === 'object') {
+          tipoCliente = proyecto.idCliente.tipoCliente || 'ANTIGUO';
+        }
+
+        const tarifa =
+          tipoCliente === 'NUEVO'
+            ? config.tarifaClienteNuevo || 0.2
+            : config.tarifaClienteAntiguo || 0.15;
+
+        return cantidad * tarifa;
+      }
+
+      // Cálculo por unidad
+      if (config.tipoCalculo === 'POR_UNIDAD') {
+        const tarifa = config.tarifaFija || 0;
+        return cantidad * tarifa;
+      }
+
+      // Cálculo por porcentaje del precio base
+      if (config.tipoCalculo === 'PORCENTAJE_PRECIO') {
+        const porcentaje = config.porcentaje || 0;
+        return (cantidad * precioBase * porcentaje) / 100;
+      }
+
+      // Cálculo por porcentaje del margen
+      if (config.tipoCalculo === 'PORCENTAJE_MARGEN') {
+        const porcentaje = config.porcentaje || 0;
+        return (
+          ((cantidad / 1000) * (precioVenta - precioBase) * porcentaje) / 100
+        );
+      }
+
+      return 0;
+    } catch (error) {
+      console.error('Error al calcular comisión:', error);
+
+      // Fallback: mantener proporción si hay datos anteriores
+      const cantidadAnterior = proyectoProducto.cantidad;
+      if (cantidadAnterior > 0 && proyectoProducto.comisionEstimada > 0) {
+        const comisionPorUnidad =
+          proyectoProducto.comisionEstimada / cantidadAnterior;
+        return cantidad * comisionPorUnidad;
+      }
+
+      return 0;
+    }
+  }
+
   async deleteByProyecto(idProyecto: string) {
     return await this.proyectoProductoRepository.delete({ idProyecto });
   }
 
-  async softDelete(idProyecto: string, idProducto: string) {
+  async softDelete(idProyectoProducto: string) {
     const proyectoProducto = await this.proyectoProductoRepository.findOne({
       where: {
-        idProyecto,
-        idProducto
+        idProyectoProducto,
       },
     });
 
     if (!proyectoProducto) {
-      throw new Error('Producto no encontrado en el proyecto');
+      throw new Error('Producto no encontrado');
     }
 
     proyectoProducto.estaActivo = false;
@@ -58,98 +208,19 @@ export class ProyectoProductoService {
     return await this.proyectoProductoRepository.save(proyectoProducto);
   }
 
-  async reactivate(idProyecto: string, idProducto: string) {
+  async reactivate(idProyectoProducto: string) {
     const proyectoProducto = await this.proyectoProductoRepository.findOne({
       where: {
-        idProyecto,
-        idProducto
+        idProyectoProducto,
       },
     });
 
     if (!proyectoProducto) {
-      throw new Error('Producto no encontrado en el proyecto');
+      throw new Error('Producto no encontrado');
     }
 
     proyectoProducto.estaActivo = true;
     proyectoProducto.fechaDesactivacion = null;
-
-    return await this.proyectoProductoRepository.save(proyectoProducto);
-  }
-
-
-  async updateCantidad(idProyecto: string, idProducto: string, cantidad: number) {
-    const proyectoProducto = await this.proyectoProductoRepository.findOne({
-      where: {
-        idProyecto,
-        idProducto
-      },
-      relations: ['idProyecto', 'idProyecto.idCliente'],
-    });
-
-    if (!proyectoProducto) {
-      throw new Error('Producto no encontrado en el proyecto');
-    }
-
-    // Obtener configuración del producto desde dispatch-ms
-    let comisionEstimada = 0;
-    try {
-      const response = await firstValueFrom(
-        this.clientDispatch.send('findProductosByIds', [idProducto]),
-      );
-
-      if (response && response.success && response.data && response.data.length > 0) {
-        const productoInfo = response.data[0];
-
-        if (productoInfo.configuracionesComision && productoInfo.configuracionesComision.length > 0) {
-          const config = productoInfo.configuracionesComision[0];
-
-          if (config.activo) {
-            // Usar la cantidad NUEVA que viene como parámetro, no la vieja de la BD
-            const precioVenta = proyectoProducto.precioVenta || 0;
-            const precioBase = config.precioBase || 0;
-
-            if (config.aplicaTipoCliente) {
-              let tipoCliente = 'ANTIGUO';
-              // @ts-ignore
-              if (proyectoProducto.idProyecto?.idCliente && typeof proyectoProducto.idProyecto.idCliente === 'object') {
-                // @ts-ignore
-                tipoCliente = proyectoProducto.idProyecto.idCliente.tipoCliente || 'ANTIGUO';
-              }
-
-              const tarifa = tipoCliente === 'NUEVO'
-                ? (config.tarifaClienteNuevo || 0.20)
-                : (config.tarifaClienteAntiguo || 0.15);
-
-              comisionEstimada = cantidad * tarifa;
-
-            } else if (config.tipoCalculo === 'POR_UNIDAD') {
-              const tarifa = config.tarifaFija || 0;
-              comisionEstimada = cantidad * tarifa;
-
-            } else if (config.tipoCalculo === 'PORCENTAJE_PRECIO') {
-              const porcentaje = config.porcentaje || 0;
-              comisionEstimada = (cantidad * precioBase * porcentaje) / 100;
-
-            } else if (config.tipoCalculo === 'PORCENTAJE_MARGEN') {
-              const porcentaje = config.porcentaje || 0;
-              comisionEstimada = (((cantidad / 1000) * (precioVenta - precioBase)) * porcentaje) / 100;
-            }
-          }
-        }
-      }
-    } catch (error) {
-      console.error('Error al obtener configuración de producto:', error);
-      // Si falla, mantener la proporción como fallback
-      const cantidadAnterior = proyectoProducto.cantidad;
-      if (cantidadAnterior > 0 && proyectoProducto.comisionEstimada > 0) {
-        const comisionPorUnidad = proyectoProducto.comisionEstimada / cantidadAnterior;
-        comisionEstimada = cantidad * comisionPorUnidad;
-      }
-    }
-
-    // Actualizar cantidad y comisión
-    proyectoProducto.cantidad = cantidad;
-    proyectoProducto.comisionEstimada = parseFloat(comisionEstimada.toFixed(2));
 
     return await this.proyectoProductoRepository.save(proyectoProducto);
   }

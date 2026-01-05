@@ -6,11 +6,15 @@ import { UpdateProyectoDto } from './dto/update-proyecto.dto';
 
 @Controller()
 export class ProyectoController {
-  constructor(private readonly proyectoService: ProyectoService) { }
+  constructor(private readonly proyectoService: ProyectoService) {}
 
   @MessagePattern('proyecto.create.completo')
-  createCompleto(@Payload() createProyectoCompletoDto: CreateProyectoCompletoDto) {
-    return this.proyectoService.createProyectoCompleto(createProyectoCompletoDto);
+  createCompleto(
+    @Payload() createProyectoCompletoDto: CreateProyectoCompletoDto,
+  ) {
+    return this.proyectoService.createProyectoCompleto(
+      createProyectoCompletoDto,
+    );
   }
 
   @MessagePattern('findAllProyecto')
@@ -21,6 +25,11 @@ export class ProyectoController {
   @MessagePattern('findOneProyecto')
   findOne(@Payload() id: string) {
     return this.proyectoService.findOne(id);
+  }
+
+  @MessagePattern('findManyProyectos')
+  findMany(@Payload() ids: string[]) {
+    return this.proyectoService.findByIds(ids);
   }
 
   @MessagePattern('findProyectosByComercial')
@@ -36,16 +45,34 @@ export class ProyectoController {
 
   @MessagePattern('updateProyectoProductos')
   updateProductos(
-    @Payload() payload: { idProyecto: string; productos: Array<{ idProducto: string; cantidad?: number }> },
+    @Payload()
+    payload: {
+      idProyecto: string;
+      productos: Array<{ idProducto: string; cantidad?: number }>;
+    },
   ) {
-    return this.proyectoService.updateProductos(payload.idProyecto, payload.productos);
+    return this.proyectoService.updateProductos(
+      payload.idProyecto,
+      payload.productos,
+    );
   }
 
   @MessagePattern('addProyectoProductos')
   addProductos(
-    @Payload() payload: { idProyecto: string; productos: Array<{ idProducto: string; cantidad?: number; precioVenta?: number }> },
+    @Payload()
+    payload: {
+      idProyecto: string;
+      productos: Array<{
+        idProducto: string;
+        cantidad?: number;
+        precioVenta?: number;
+      }>;
+    },
   ) {
-    return this.proyectoService.addProductos(payload.idProyecto, payload.productos);
+    return this.proyectoService.addProductos(
+      payload.idProyecto,
+      payload.productos,
+    );
   }
 
   @MessagePattern('removeProyecto')
