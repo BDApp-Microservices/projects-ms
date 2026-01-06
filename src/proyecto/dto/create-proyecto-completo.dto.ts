@@ -14,7 +14,11 @@ import { CreateProyectoDto } from './create-proyecto.dto';
 export class ClienteNuevoDto {
     @IsString()
     @IsNotEmpty()
-    razonSocial: string;
+    nombreComercial: string;
+
+    @IsString()
+    @IsOptional()
+    razonSocial?: string;
 
     @IsString()
     @IsOptional()

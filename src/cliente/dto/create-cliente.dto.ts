@@ -1,4 +1,4 @@
-import { IsOptional, IsString, IsBoolean } from "class-validator";
+import { IsOptional, IsString, IsBoolean, IsNotEmpty } from "class-validator";
 
 
 export class CreateClienteDto {
@@ -7,11 +7,12 @@ export class CreateClienteDto {
     ruc?: string;
 
     @IsString()
-    razonSocial: string;
+    @IsOptional()
+    razonSocial?: string;
 
     @IsString()
-    @IsOptional()
-    nombreComercial?: string;
+    @IsNotEmpty()
+    nombreComercial: string;
 
     @IsString()
     @IsOptional()

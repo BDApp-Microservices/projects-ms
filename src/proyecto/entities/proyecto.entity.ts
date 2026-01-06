@@ -40,6 +40,12 @@ export class Proyecto {
     @Column('varchar', { name: 'ubicacion', length: 255, nullable: true })
     ubicacion: string;
 
+    @Column('decimal', { name: 'latitud', precision: 10, scale: 7, nullable: true })
+    latitud: number;
+
+    @Column('decimal', { name: 'longitud', precision: 10, scale: 7, nullable: true })
+    longitud: number;
+
     @Column('varchar', { name: 'numero_contacto', length: 20, nullable: true })
     numeroContacto: string;
 

@@ -23,7 +23,7 @@ export class ProyectoService {
     private clienteService: ClienteService,
     private auditoriaProyectoService: AuditoriaProyectoService,
     @Inject(NATS_SERVICE) private readonly clientDispatch: ClientProxy,
-  ) {}
+  ) { }
 
   async findAll(): Promise<BaseResponseDto<Proyecto[]>> {
     try {
@@ -148,33 +148,39 @@ export class ProyectoService {
         let idCliente: string;
 
         // 1. Manejar cliente según tipo de proyecto
+        // 1. Manejar cliente según tipo de proyecto
         if (createDto.esProyectoNuevo) {
           // Proyecto NUEVO: Validar que cliente no exista
-          if (!createDto.clienteNuevo) {
+          if (!createDto.clienteNuevo || !createDto.clienteNuevo.nombreComercial) {
             throw new RpcException({
-              message: 'Debe proporcionar datos del cliente nuevo',
+              message: 'Debe proporcionar datos del cliente nuevo (nombre comercial obligatorio)',
               statusCode: HttpStatus.BAD_REQUEST,
             });
           }
 
-          const clienteExistente = await this.clienteService.findByRazonSocial(
-            createDto.clienteNuevo.razonSocial,
+          const clienteExistente = await this.clienteService.findByNombreComercial(
+            createDto.clienteNuevo.nombreComercial,
           );
 
           if (clienteExistente) {
+            // Si existe, y es exactamente el mismo, podríamos reusarlo, pero la lógica pide validar duplicados.
+            // Sin embargo, si razonSocial es opcional, el nombre comercial es la clave principal.
             throw new RpcException({
-              message: `El cliente con razón social "${createDto.clienteNuevo.razonSocial}" ya existe`,
+              message: `El cliente con nombre comercial "${createDto.clienteNuevo.nombreComercial}" ya existe`,
               statusCode: HttpStatus.CONFLICT,
             });
           }
 
           // Crear nuevo cliente
+          // SI no viene razonSocial, usamos nombreComercial para ambos campos (o dejamos razonSocial null si la BD lo permite, pero es mejor tener algo).
+          // El usuario pidió que razonSocial sea opcional.
           const nuevoCliente = manager.create(Cliente, {
-            razonSocial: createDto.clienteNuevo.razonSocial,
+            razonSocial: createDto.clienteNuevo.razonSocial || '', // Fallback a nombre comercial si no hay razón social
+            nombreComercial: createDto.clienteNuevo.nombreComercial,
             ruc: createDto.clienteNuevo.ruc,
-            tipo: createDto.clienteNuevo.tipo || 'GENERAL',
-            credito: createDto.clienteNuevo.credito || 'CONTADO',
-            condicion: createDto.clienteNuevo.condicion || 'HABILITADO',
+            tipo: createDto.clienteNuevo.tipo || '',
+            credito: createDto.clienteNuevo.credito || '',
+            condicion: createDto.clienteNuevo.condicion || '',
             datos: createDto.clienteNuevo.datos || '',
             estaActivo: false,
             tipoCliente: 'NUEVO',
@@ -217,6 +223,8 @@ export class ProyectoService {
           pisos: createDto.proyecto.pisos,
           sotanos: createDto.proyecto.sotanos,
           ubicacion: createDto.proyecto.ubicacion,
+          latitud: createDto.proyecto.latitud,
+          longitud: createDto.proyecto.longitud,
           numeroContacto: createDto.proyecto.numeroContacto,
           nombreContacto: createDto.proyecto.nombreContacto,
           estado: createDto.proyecto.estado,

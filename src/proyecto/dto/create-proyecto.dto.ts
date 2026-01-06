@@ -43,6 +43,14 @@ export class CreateProyectoDto {
     @IsOptional()
     ubicacion?: string;
 
+    @IsNumber()
+    @IsOptional()
+    latitud?: number;
+
+    @IsNumber()
+    @IsOptional()
+    longitud?: number;
+
     @IsString()
     @IsOptional()
     numeroContacto?: string;

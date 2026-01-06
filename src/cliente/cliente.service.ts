@@ -15,6 +15,23 @@ export class ClienteService {
   ) { }
 
   /**
+   * Busca un cliente por nombre comercial
+   */
+  async findByNombreComercial(nombreComercial: string): Promise<Cliente | null> {
+    try {
+      return await this.clienteRepo.findOne({
+        where: { nombreComercial },
+      });
+    } catch (error) {
+      throw new RpcException({
+        message: 'Error al buscar cliente por nombre comercial',
+        statusCode: 500,
+        error: error.message,
+      });
+    }
+  }
+
+  /**
    * Busca un cliente por razón social
    */
   async findByRazonSocial(razonSocial: string): Promise<Cliente | null> {
