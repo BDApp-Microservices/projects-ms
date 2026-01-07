@@ -52,6 +52,9 @@ export class ProductoAsociadoDto {
 
     @IsOptional()
     precioVenta?: number;
+
+    @IsOptional()
+    observaciones?: string;
 }
 
 // DTO principal para creación completa

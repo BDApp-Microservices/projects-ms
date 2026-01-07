@@ -9,7 +9,7 @@ export class Cliente {
     @Column('varchar', { name: 'ruc', unique: true, length: 11, nullable: true })
     ruc: string;
 
-    @Column('varchar', { name: 'razon_social', unique: true, length: 100, nullable: true })
+    @Column('varchar', { name: 'razon_social', length: 100, nullable: true })
     razonSocial: string;
 
     @Column('varchar', { name: 'nombre_comercial', length: 100 })

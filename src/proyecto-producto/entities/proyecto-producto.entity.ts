@@ -64,8 +64,17 @@ export class ProyectoProducto {
   @Column('date', { name: 'fecha_envio', nullable: true })
   fechaEnvio: Date;
 
+  // Fecha de inicio de la cotización
+  @Column('date', { name: 'fecha_inicio', nullable: true })
+  fechaInicio: Date;
 
-  // Relaciones
+  // Días pendientes: calculado al momento de envío (fechaAproxEnvio - fechaEnvio)
+  @Column('int', { name: 'dias_pendientes', nullable: true })
+  diasPendientes: number;
+
+  // Días de desarrollo: calculado automáticamente (fechaEnvio - fechaInicio)
+  @Column('int', { name: 'dias_desarrollo', nullable: true })
+  diasDesarrollo: number;  // Relaciones
 
   @ManyToOne(() => Proyecto, proyecto => proyecto.proyectoProductos)
   @JoinColumn({ name: 'id_proyecto', referencedColumnName: 'idProyecto' })

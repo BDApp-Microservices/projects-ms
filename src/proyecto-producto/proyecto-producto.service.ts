@@ -13,7 +13,7 @@ export class ProyectoProductoService {
     @InjectRepository(ProyectoProducto)
     private readonly proyectoProductoRepository: Repository<ProyectoProducto>,
     @Inject(NATS_SERVICE) private readonly clientDispatch: ClientProxy,
-  ) {}
+  ) { }
 
   async createMany(createDtos: CreateProyectoProductoDto[]) {
     const proyectoProductos =
@@ -92,6 +92,27 @@ export class ProyectoProductoService {
       proyectoProducto.comisionEstimada = parseFloat(
         comisionEstimada.toFixed(2),
       );
+    }
+
+    // Calcular días cuando se guarda fechaEnvio
+    if (proyectoProducto.fechaEnvio) {
+      // diasPendientes: diferencia entre fechaAproxEnvio y fechaEnvio (o fecha actual si no había fechaEnvio antes)
+      if (proyectoProducto.fechaAproxEnvio) {
+        const fechaAprox = new Date(proyectoProducto.fechaAproxEnvio);
+        const fechaEnvio = new Date(proyectoProducto.fechaEnvio);
+        const diffTime = fechaAprox.getTime() - fechaEnvio.getTime();
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        proyectoProducto.diasPendientes = diffDays;
+      }
+
+      // diasDesarrollo: diferencia entre fechaEnvio y fechaInicio
+      if (proyectoProducto.fechaInicio) {
+        const fechaInicio = new Date(proyectoProducto.fechaInicio);
+        const fechaEnvio = new Date(proyectoProducto.fechaEnvio);
+        const diffTime = fechaEnvio.getTime() - fechaInicio.getTime();
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        proyectoProducto.diasDesarrollo = diffDays;
+      }
     }
 
     return await this.proyectoProductoRepository.save(proyectoProducto);

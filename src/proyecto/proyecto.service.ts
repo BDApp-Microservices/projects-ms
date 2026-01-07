@@ -359,6 +359,7 @@ export class ProyectoService {
               cantidad: productoDto.cantidad || 0,
               precioVenta: productoDto.precioVenta || undefined,
               comisionEstimada: parseFloat(comisionEstimada.toFixed(2)),
+              observaciones: productoDto.observaciones || '',
             });
           });
 
@@ -557,6 +558,8 @@ export class ProyectoService {
               // @ts-ignore
               precioVenta: productoDto.precioVenta || undefined,
               comisionEstimada: parseFloat(comisionEstimada.toFixed(2)),
+              // @ts-ignore
+              observaciones: productoDto.observaciones || '',
             });
           });
 

@@ -48,6 +48,10 @@ export class CreateProyectoProductoDto {
   @IsDateString()
   fechaEnvio?: Date;
 
+  @IsOptional()
+  @IsDateString()
+  fechaInicio?: Date;
+
   @IsUUID('4')
   @IsNotEmpty()
   elaboradoPor: string;
