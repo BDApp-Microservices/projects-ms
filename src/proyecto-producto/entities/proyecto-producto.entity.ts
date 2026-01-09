@@ -1,4 +1,4 @@
-import { Column, Entity, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
+import { Column, Entity, Generated, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
 import { Proyecto } from 'src/proyecto/entities/proyecto.entity';
 import { Proyeccion } from 'src/proyeccion/entities/proyeccion.entity';
 
@@ -6,6 +6,10 @@ import { Proyeccion } from 'src/proyeccion/entities/proyeccion.entity';
 export class ProyectoProducto {
   @PrimaryGeneratedColumn('uuid', { name: 'id_proyecto_producto' })
   idProyectoProducto: string;
+
+  @Generated('increment')
+  @Column('int', { name: 'numero_cotizacion' })
+  numeroCotizacion: number;
 
   @Column('decimal', {
     name: 'cantidad',

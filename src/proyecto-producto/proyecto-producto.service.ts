@@ -49,6 +49,9 @@ export class ProyectoProductoService {
     return await this.proyectoProductoRepository.find({
       where: whereCondition,
       relations: ['idProyecto'],
+      order: {
+        numeroCotizacion: 'ASC',
+      },
     });
   }
 
