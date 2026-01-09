@@ -360,6 +360,9 @@ export class ProyectoService {
               precioVenta: productoDto.precioVenta || undefined,
               comisionEstimada: parseFloat(comisionEstimada.toFixed(2)),
               observaciones: productoDto.observaciones || '',
+              actividad: 'COTIZACION', // Actividad automática para nuevos registros
+              estado: 'PENDIENTE', // Estado automático para nuevos registros
+              fechaAproxEnvio: productoDto.fechaAproxEnvio || undefined,
             });
           });
 
@@ -560,6 +563,10 @@ export class ProyectoService {
               comisionEstimada: parseFloat(comisionEstimada.toFixed(2)),
               // @ts-ignore
               observaciones: productoDto.observaciones || '',
+              actividad: 'COTIZACION', // Actividad automática para nuevos registros
+              estado: 'PENDIENTE', // Estado automático para nuevos registros
+              // @ts-ignore
+              fechaAproxEnvio: productoDto.fechaAproxEnvio || null,
             });
           });
 

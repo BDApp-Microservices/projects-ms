@@ -1,6 +1,7 @@
 import { Type } from 'class-transformer';
 import {
     IsArray,
+    IsDateString,
     IsBoolean,
     IsNotEmpty,
     IsOptional,
@@ -55,6 +56,10 @@ export class ProductoAsociadoDto {
 
     @IsOptional()
     observaciones?: string;
+
+    @IsOptional()
+    @IsDateString()
+    fechaAproxEnvio?: string;
 }
 
 // DTO principal para creación completa
