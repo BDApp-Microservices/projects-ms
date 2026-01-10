@@ -1,4 +1,13 @@
-import { Column, Entity, Generated, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
+import {
+  Column,
+  CreateDateColumn,
+  Entity,
+  Generated,
+  JoinColumn,
+  ManyToOne,
+  OneToMany,
+  PrimaryGeneratedColumn,
+} from 'typeorm';
 import { Proyecto } from 'src/proyecto/entities/proyecto.entity';
 import { Proyeccion } from 'src/proyeccion/entities/proyeccion.entity';
 
@@ -78,9 +87,22 @@ export class ProyectoProducto {
 
   // Días de desarrollo: calculado automáticamente (fechaEnvio - fechaInicio)
   @Column('int', { name: 'dias_desarrollo', nullable: true })
-  diasDesarrollo: number;  // Relaciones
+  diasDesarrollo: number;
 
-  @ManyToOne(() => Proyecto, proyecto => proyecto.proyectoProductos)
+  // Fecha de creación del registro (automática)
+  @CreateDateColumn({
+    name: 'fecha_creacion',
+    type: 'timestamp with time zone',
+  })
+  fechaCreacion: Date;
+
+  // Días en espera: se congela cuando estado cambia a PROCESO
+  @Column('int', { name: 'dias_en_espera', nullable: true })
+  diasEnEspera: number;
+
+  // Relaciones
+
+  @ManyToOne(() => Proyecto, (proyecto) => proyecto.proyectoProductos)
   @JoinColumn({ name: 'id_proyecto', referencedColumnName: 'idProyecto' })
   idProyecto: string;
 
@@ -92,6 +114,6 @@ export class ProyectoProducto {
   elaboradoPor: string; // Relacion logica
 
   // Proyecciones asociadas al proyecto-producto
-  @OneToMany(() => Proyeccion, proyeccion => proyeccion.idProyectoProducto)
+  @OneToMany(() => Proyeccion, (proyeccion) => proyeccion.idProyectoProducto)
   proyecciones: Proyeccion[];
 }

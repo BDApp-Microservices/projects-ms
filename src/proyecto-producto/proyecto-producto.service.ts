@@ -114,6 +114,20 @@ export class ProyectoProductoService {
     const shouldRecalculateCommission =
       updateData.cantidad !== undefined || updateData.precioVenta !== undefined;
 
+    // Calcular y congelar diasEnEspera cuando el estado cambia a PROCESO
+    if (
+      updateData.estado === 'PROCESO' &&
+      (proyectoProducto.diasEnEspera === null ||
+        proyectoProducto.diasEnEspera === undefined)
+    ) {
+      const fechaCreacion = new Date(proyectoProducto.fechaCreacion);
+      const hoy = new Date();
+      const diffTime = hoy.getTime() - fechaCreacion.getTime();
+      proyectoProducto.diasEnEspera = Math.floor(
+        diffTime / (1000 * 60 * 60 * 24),
+      );
+    }
+
     // Actualizar campos
     Object.assign(proyectoProducto, updateData);
 
