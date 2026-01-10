@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CreateProyectoProductoDto } from './dto/create-proyecto-producto.dto';
 import { ProyectoProducto } from './entities/proyecto-producto.entity';
-import { ClientProxy } from '@nestjs/microservices';
+import { ClientProxy, RpcException } from '@nestjs/microservices';
 import { NATS_SERVICE } from 'src/config';
 import { firstValueFrom } from 'rxjs';
 
@@ -13,7 +13,7 @@ export class ProyectoProductoService {
     @InjectRepository(ProyectoProducto)
     private readonly proyectoProductoRepository: Repository<ProyectoProducto>,
     @Inject(NATS_SERVICE) private readonly clientDispatch: ClientProxy,
-  ) { }
+  ) {}
 
   async createMany(createDtos: CreateProyectoProductoDto[]) {
     const proyectoProductos =
@@ -79,7 +79,35 @@ export class ProyectoProductoService {
     });
 
     if (!proyectoProducto) {
-      throw new Error('Producto no encontrado');
+      throw new RpcException({
+        status: HttpStatus.NOT_FOUND,
+        message: 'Producto no encontrado',
+      });
+    }
+
+    // Validación para estado ENVIADO
+    const estadoFinal = updateData.estado ?? proyectoProducto.estado;
+    if (estadoFinal === 'ENVIADO') {
+      const cantidadFinal = updateData.cantidad ?? proyectoProducto.cantidad;
+      const sistemaInicialFinal =
+        updateData.sistemaInicial ?? proyectoProducto.sistemaInicial;
+
+      const errores: string[] = [];
+
+      if (!cantidadFinal || cantidadFinal <= 0) {
+        errores.push('La cantidad debe ser mayor a 0');
+      }
+
+      if (!sistemaInicialFinal) {
+        errores.push('Debe seleccionar un sistema inicial');
+      }
+
+      if (errores.length > 0) {
+        throw new RpcException({
+          status: HttpStatus.BAD_REQUEST,
+          message: `Para guardar con estado ENVIADO: ${errores.join(', ')}`,
+        });
+      }
     }
 
     // Verificar si se está actualizando cantidad o precioVenta para recalcular comisión
