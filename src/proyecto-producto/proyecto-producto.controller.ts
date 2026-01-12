@@ -41,4 +41,9 @@ export class ProyectoProductoController {
   reactivate(@Payload() idProyectoProducto: string) {
     return this.proyectoProductoService.reactivate(idProyectoProducto);
   }
+
+  @MessagePattern('exportarSeguimientoExcel')
+  exportarExcel(@Payload() dto: { columnas?: string[] }) {
+    return this.proyectoProductoService.exportarExcel(dto);
+  }
 }
