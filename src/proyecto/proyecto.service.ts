@@ -227,6 +227,7 @@ export class ProyectoService {
           longitud: createDto.proyecto.longitud,
           numeroContacto: createDto.proyecto.numeroContacto,
           nombreContacto: createDto.proyecto.nombreContacto,
+          correoContacto: createDto.proyecto.correoContacto,
           estado: createDto.proyecto.estado,
           idComercial: createDto.proyecto.idComercial,
           idCliente: idCliente, // Solo el UUID, no el objeto

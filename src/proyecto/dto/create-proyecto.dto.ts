@@ -60,6 +60,10 @@ export class CreateProyectoDto {
     nombreContacto?: string;
 
     @IsString()
+    @IsOptional()
+    correoContacto?: string;
+
+    @IsString()
     @IsNotEmpty()
     estado: string;
 

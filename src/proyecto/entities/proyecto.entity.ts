@@ -52,6 +52,9 @@ export class Proyecto {
     @Column('varchar', { name: 'nombre_contacto', length: 100, nullable: true })
     nombreContacto: string;
 
+    @Column('varchar', { name: 'correo_contacto', length: 100, nullable: true })
+    correoContacto: string;
+
     @Column('varchar', { name: 'estado', length: 50 })
     estado: string; // 'NEGOCIACIONES', 'CALIENTITO', 'CERRADO', 'PERDIDO', 'STAND BY'
 
