@@ -564,7 +564,8 @@ export class ProyectoService {
               comisionEstimada: parseFloat(comisionEstimada.toFixed(2)),
               // @ts-ignore
               observaciones: productoDto.observaciones || '',
-              actividad: 'COTIZACION', // Actividad automática para nuevos registros
+              // @ts-ignore - Si esActualizacion es true, usar ACTUALIZACION, sino COTIZACION
+              actividad: productoDto.esActualizacion ? 'ACTUALIZACION' : 'COTIZACION',
               estado: 'PENDIENTE', // Estado automático para nuevos registros
               // @ts-ignore
               fechaAproxEnvio: productoDto.fechaAproxEnvio || null,
