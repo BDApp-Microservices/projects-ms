@@ -58,6 +58,20 @@ export class Proyecto {
     @Column('varchar', { name: 'estado', length: 50 })
     estado: string; // 'NEGOCIACIONES', 'CALIENTITO', 'CERRADO', 'PERDIDO', 'STAND BY'
 
+    // Campos de auditoría
+
+    // Contador de veces que se ha cambiado la fecha tentativa
+    @Column('int', { name: 'contador_cambios_fecha_tentativa', default: 0 })
+    contadorCambiosFechaTentativa: number;
+
+    // Última fecha en la que se cambió la fecha tentativa
+    @Column('timestamp with time zone', { name: 'ultimo_cambio_fecha_tentativa', nullable: true })
+    ultimoCambioFechaTentativa: Date;
+
+    // Fecha de cierre del proyecto (cuando estado = CERRADO)
+    @Column('date', { name: 'fecha_cierre', nullable: true })
+    fechaCierre: Date;
+
     // Relaciones
 
     // Ingeniero responsable - Relacion logica

@@ -1,19 +1,16 @@
-import { IsDate, IsOptional, IsString, IsUUID } from 'class-validator';
-import { Type } from 'class-transformer';
+import { IsOptional, IsString, IsUUID } from 'class-validator';
 
 export class CreateAuditoriaProyectoDto {
     @IsUUID()
     idProyecto: string;
 
-    @IsDate()
-    @Type(() => Date)
-    fechaBaja: Date;
+    // fechaPerdida se establece automáticamente en el backend
 
     @IsOptional()
     @IsString()
-    motivoPrincipal?: string;
+    detallePerdida?: string;
 
     @IsOptional()
     @IsString()
-    descripcion?: string;
+    detalleTextual?: string;
 }

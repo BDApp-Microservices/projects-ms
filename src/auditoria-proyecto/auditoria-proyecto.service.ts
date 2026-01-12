@@ -1,10 +1,11 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, HttpStatus } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { RpcException } from '@nestjs/microservices';
 import { CreateAuditoriaProyectoDto } from './dto/create-auditoria-proyecto.dto';
 import { UpdateAuditoriaProyectoDto } from './dto/update-auditoria-proyecto.dto';
 import { AuditoriaProyecto } from './entities/auditoria-proyecto.entity';
+import { Proyecto } from 'src/proyecto/entities/proyecto.entity';
 import { BaseResponseDto } from '../common/dto/base-response.dto';
 
 @Injectable()
@@ -12,16 +13,53 @@ export class AuditoriaProyectoService {
   constructor(
     @InjectRepository(AuditoriaProyecto)
     private readonly auditoriaProyectoRepository: Repository<AuditoriaProyecto>,
+    @InjectRepository(Proyecto)
+    private readonly proyectoRepository: Repository<Proyecto>,
   ) { }
 
   async create(createAuditoriaProyectoDto: CreateAuditoriaProyectoDto) {
-    const auditoria = this.auditoriaProyectoRepository.create({
-      fechaBaja: createAuditoriaProyectoDto.fechaBaja,
-      motivoPrincipal: createAuditoriaProyectoDto.motivoPrincipal,
-      descripcion: createAuditoriaProyectoDto.descripcion,
-      idProyecto: createAuditoriaProyectoDto.idProyecto as any, // TypeORM expects the relation
-    });
-    return await this.auditoriaProyectoRepository.save(auditoria);
+    try {
+      // 1. Verificar que el proyecto existe
+      const proyecto = await this.proyectoRepository.findOne({
+        where: { idProyecto: createAuditoriaProyectoDto.idProyecto },
+      });
+
+      if (!proyecto) {
+        throw new RpcException({
+          message: 'Proyecto no encontrado',
+          statusCode: HttpStatus.NOT_FOUND,
+        });
+      }
+
+      // 2. Crear registro de auditoría con fecha automática
+      const auditoria = this.auditoriaProyectoRepository.create({
+        detallePerdida: createAuditoriaProyectoDto.detallePerdida,
+        detalleTextual: createAuditoriaProyectoDto.detalleTextual,
+        idProyecto: createAuditoriaProyectoDto.idProyecto as any,
+      });
+      const auditoriaGuardada = await this.auditoriaProyectoRepository.save(auditoria);
+
+      // 3. Actualizar el estado del proyecto a PERDIDO automáticamente
+      await this.proyectoRepository.update(
+        createAuditoriaProyectoDto.idProyecto,
+        { estado: 'PERDIDO' }
+      );
+
+      return BaseResponseDto.success(
+        auditoriaGuardada,
+        'Auditoría creada y proyecto marcado como perdido exitosamente',
+        HttpStatus.CREATED,
+      );
+    } catch (error) {
+      if (error instanceof RpcException) {
+        throw error;
+      }
+      throw new RpcException({
+        message: 'Error al crear auditoría',
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        error: error.message,
+      });
+    }
   }
 
   async findAll(): Promise<BaseResponseDto<AuditoriaProyecto[]>> {
@@ -90,12 +128,12 @@ export class AuditoriaProyectoService {
         });
       }
 
-      // Solo actualizar los campos permitidos: motivoPrincipal y descripcion
-      if (updateAuditoriaProyectoDto.motivoPrincipal !== undefined) {
-        auditoria.motivoPrincipal = updateAuditoriaProyectoDto.motivoPrincipal;
+      // Solo actualizar los campos permitidos: detallePerdida y detalleTextual
+      if (updateAuditoriaProyectoDto.detallePerdida !== undefined) {
+        auditoria.detallePerdida = updateAuditoriaProyectoDto.detallePerdida;
       }
-      if (updateAuditoriaProyectoDto.descripcion !== undefined) {
-        auditoria.descripcion = updateAuditoriaProyectoDto.descripcion;
+      if (updateAuditoriaProyectoDto.detalleTextual !== undefined) {
+        auditoria.detalleTextual = updateAuditoriaProyectoDto.detalleTextual;
       }
 
       const auditoriaActualizada = await this.auditoriaProyectoRepository.save(auditoria);

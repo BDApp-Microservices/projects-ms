@@ -412,28 +412,38 @@ export class ProyectoService {
           });
         }
 
-        // 2. Detectar cambio de estado a PERDIDO
+        // 2. Detectar cambios para auditoría
         const estadoAnterior = proyecto.estado;
         const estadoNuevo = updateProyectoDto.estado;
+        const fechaTentativaAnterior = proyecto.fechaTentativa;
+        const fechaTentativaNueva = updateProyectoDto.fechaTentativa;
 
-        // 3. Actualizar datos del proyecto
+        // 3. Preparar datos de actualización
         const { idCliente, ...updateData } = updateProyectoDto;
         if (idCliente) {
           updateData['idCliente'] = idCliente as any;
         }
-        await manager.update(Proyecto, id, updateData);
 
-        // 4. Crear auditoría si el estado cambió a PERDIDO
-        if (estadoNuevo === 'PERDIDO' && estadoAnterior !== 'PERDIDO') {
-          await this.auditoriaProyectoService.create({
-            idProyecto: id,
-            fechaBaja: new Date(),
-            motivoPrincipal: '',
-            descripcion: '',
-          });
+        // 4. Detectar cambio de fechaTentativa -> incrementar contador y registrar fecha
+        if (fechaTentativaNueva && fechaTentativaAnterior) {
+          const fechaAnteriorStr = new Date(fechaTentativaAnterior).toISOString().split('T')[0];
+          const fechaNuevaStr = new Date(fechaTentativaNueva).toISOString().split('T')[0];
+
+          if (fechaAnteriorStr !== fechaNuevaStr) {
+            updateData['contadorCambiosFechaTentativa'] = (proyecto.contadorCambiosFechaTentativa || 0) + 1;
+            updateData['ultimoCambioFechaTentativa'] = new Date();
+          }
         }
 
-        // 5. Obtener proyecto actualizado
+        // 5. Detectar cambio de estado a CERRADO -> establecer fechaCierre
+        if (estadoNuevo === 'CERRADO' && estadoAnterior !== 'CERRADO') {
+          updateData['fechaCierre'] = new Date();
+        }
+
+        // 6. Actualizar datos del proyecto
+        await manager.update(Proyecto, id, updateData);
+
+        // 7. Obtener proyecto actualizado
         const proyectoActualizado = await manager.findOne(Proyecto, {
           where: { idProyecto: id },
         });
