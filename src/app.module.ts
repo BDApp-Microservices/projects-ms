@@ -13,11 +13,13 @@ import { ProyeccionSemanalModule } from './proyeccion-semanal/proyeccion-semanal
 import { ProyectoProductoModule } from './proyecto-producto/proyecto-producto.module';
 import { AuditoriaCotizacionModule } from './auditoria-cotizacion/auditoria-cotizacion.module';
 import { ProyectoArchivoModule } from './proyecto-archivo/proyecto-archivo.module';
+import { GcsStorageModule } from './gcs-storage/gcs-storage.module';
 
 
 @Module({
   imports: [
-    // Other modules can be imported here
+    GcsStorageModule,
+    // Otros modulos
     TypeOrmModule.forRoot({
       type: 'postgres',
       host: envs.dbhost,

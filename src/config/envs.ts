@@ -10,6 +10,9 @@ interface EnvVars {
     DB_NAME: string;
     NODE_ENV: string;
     NATS_SERVERS: string;
+    GCS_PROJECT_ID: string;
+    GCS_BUCKET_NAME: string;
+    GCS_KEY_FILE: string;
 }
 
 const envsSchema = joi.object({
@@ -21,6 +24,9 @@ const envsSchema = joi.object({
     DB_NAME: joi.string().required(),
     NODE_ENV: joi.string().required(),
     NATS_SERVERS: joi.array().items(joi.string()).required(),
+    GCS_PROJECT_ID: joi.string().required(),
+    GCS_BUCKET_NAME: joi.string().required(),
+    GCS_KEY_FILE: joi.string().required(),
 })
     .unknown(true);
 
@@ -44,4 +50,7 @@ export const envs = {
     dbname: envVars.DB_NAME,
     nodeEnv: envVars.NODE_ENV,
     natsServers: envVars.NATS_SERVERS,
+    gcsProjectId: envVars.GCS_PROJECT_ID,
+    gcsBucketName: envVars.GCS_BUCKET_NAME,
+    gcsKeyFile: envVars.GCS_KEY_FILE,
 }

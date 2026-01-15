@@ -4,12 +4,20 @@ import { ProyectoArchivoService } from './proyecto-archivo.service';
 import { CreateProyectoArchivoDto } from './dto/create-proyecto-archivo.dto';
 import { UpdateProyectoArchivoDto } from './dto/update-proyecto-archivo.dto';
 
+interface CreateWithFilePayload extends CreateProyectoArchivoDto {
+  base64Data?: string;
+  fileName?: string;
+  mimeType?: string;
+}
+
 @Controller()
 export class ProyectoArchivoController {
-  constructor(private readonly proyectoArchivoService: ProyectoArchivoService) {}
+  constructor(
+    private readonly proyectoArchivoService: ProyectoArchivoService,
+  ) { }
 
   @MessagePattern('createProyectoArchivo')
-  create(@Payload() createProyectoArchivoDto: CreateProyectoArchivoDto) {
+  create(@Payload() createProyectoArchivoDto: CreateWithFilePayload) {
     return this.proyectoArchivoService.create(createProyectoArchivoDto);
   }
 
@@ -19,17 +27,30 @@ export class ProyectoArchivoController {
   }
 
   @MessagePattern('findOneProyectoArchivo')
-  findOne(@Payload() id: number) {
+  findOne(@Payload() id: string) {
     return this.proyectoArchivoService.findOne(id);
+  }
+
+  @MessagePattern('findProyectoArchivoByProyecto')
+  findByProyecto(@Payload() idProyecto: string) {
+    return this.proyectoArchivoService.findByProyectoWithSignedUrls(idProyecto);
   }
 
   @MessagePattern('updateProyectoArchivo')
   update(@Payload() updateProyectoArchivoDto: UpdateProyectoArchivoDto) {
-    return this.proyectoArchivoService.update(updateProyectoArchivoDto.id, updateProyectoArchivoDto);
+    return this.proyectoArchivoService.update(
+      updateProyectoArchivoDto.id,
+      updateProyectoArchivoDto,
+    );
   }
 
   @MessagePattern('removeProyectoArchivo')
-  remove(@Payload() id: number) {
+  remove(@Payload() id: string) {
     return this.proyectoArchivoService.remove(id);
+  }
+
+  @MessagePattern('getProyectoArchivoSignedUrl')
+  getSignedUrl(@Payload() id: string) {
+    return this.proyectoArchivoService.getSignedUrl(id);
   }
 }
