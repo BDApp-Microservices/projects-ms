@@ -22,6 +22,11 @@ export class ProyectoController {
     return this.proyectoService.findAll();
   }
 
+  @MessagePattern('findAllProyectoCerrado')
+  findAllCerrados() {
+    return this.proyectoService.findAllCerrados();
+  }
+
   @MessagePattern('findOneProyecto')
   findOne(@Payload() id: string) {
     return this.proyectoService.findOne(id);

@@ -12,6 +12,7 @@ import { ProyeccionModule } from './proyeccion/proyeccion.module';
 import { ProyeccionSemanalModule } from './proyeccion-semanal/proyeccion-semanal.module';
 import { ProyectoProductoModule } from './proyecto-producto/proyecto-producto.module';
 import { AuditoriaCotizacionModule } from './auditoria-cotizacion/auditoria-cotizacion.module';
+import { ProyectoArchivoModule } from './proyecto-archivo/proyecto-archivo.module';
 
 
 @Module({
@@ -38,6 +39,7 @@ import { AuditoriaCotizacionModule } from './auditoria-cotizacion/auditoria-coti
     ProyeccionSemanalModule,
     ProyectoProductoModule,
     AuditoriaCotizacionModule,
+    ProyectoArchivoModule,
   ],
   controllers: [],
   providers: [],

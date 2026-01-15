@@ -23,7 +23,7 @@ export class ProyectoService {
     private clienteService: ClienteService,
     private auditoriaProyectoService: AuditoriaProyectoService,
     @Inject(NATS_SERVICE) private readonly clientDispatch: ClientProxy,
-  ) { }
+  ) {}
 
   async findAll(): Promise<BaseResponseDto<Proyecto[]>> {
     try {
@@ -40,6 +40,28 @@ export class ProyectoService {
     } catch (error) {
       throw new RpcException({
         message: 'Error al obtener proyectos',
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        error: error.message,
+      });
+    }
+  }
+
+  async findAllCerrados(): Promise<BaseResponseDto<Proyecto[]>> {
+    try {
+      const proyectos = await this.proyectoRepo.find({
+        where: { estado: 'CERRADO' },
+        relations: ['idCliente'],
+        order: { fechaCreacion: 'DESC' },
+      });
+
+      return BaseResponseDto.success(
+        proyectos,
+        'Proyectos cerrados obtenidos exitosamente',
+        200,
+      );
+    } catch (error) {
+      throw new RpcException({
+        message: 'Error al obtener proyectos cerrados',
         statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
         error: error.message,
       });
@@ -151,16 +173,21 @@ export class ProyectoService {
         // 1. Manejar cliente según tipo de proyecto
         if (createDto.esProyectoNuevo) {
           // Proyecto NUEVO: Validar que cliente no exista
-          if (!createDto.clienteNuevo || !createDto.clienteNuevo.nombreComercial) {
+          if (
+            !createDto.clienteNuevo ||
+            !createDto.clienteNuevo.nombreComercial
+          ) {
             throw new RpcException({
-              message: 'Debe proporcionar datos del cliente nuevo (nombre comercial obligatorio)',
+              message:
+                'Debe proporcionar datos del cliente nuevo (nombre comercial obligatorio)',
               statusCode: HttpStatus.BAD_REQUEST,
             });
           }
 
-          const clienteExistente = await this.clienteService.findByNombreComercial(
-            createDto.clienteNuevo.nombreComercial,
-          );
+          const clienteExistente =
+            await this.clienteService.findByNombreComercial(
+              createDto.clienteNuevo.nombreComercial,
+            );
 
           if (clienteExistente) {
             // Si existe, y es exactamente el mismo, podríamos reusarlo, pero la lógica pide validar duplicados.
@@ -426,11 +453,16 @@ export class ProyectoService {
 
         // 4. Detectar cambio de fechaTentativa -> incrementar contador y registrar fecha
         if (fechaTentativaNueva && fechaTentativaAnterior) {
-          const fechaAnteriorStr = new Date(fechaTentativaAnterior).toISOString().split('T')[0];
-          const fechaNuevaStr = new Date(fechaTentativaNueva).toISOString().split('T')[0];
+          const fechaAnteriorStr = new Date(fechaTentativaAnterior)
+            .toISOString()
+            .split('T')[0];
+          const fechaNuevaStr = new Date(fechaTentativaNueva)
+            .toISOString()
+            .split('T')[0];
 
           if (fechaAnteriorStr !== fechaNuevaStr) {
-            updateData['contadorCambiosFechaTentativa'] = (proyecto.contadorCambiosFechaTentativa || 0) + 1;
+            updateData['contadorCambiosFechaTentativa'] =
+              (proyecto.contadorCambiosFechaTentativa || 0) + 1;
             updateData['ultimoCambioFechaTentativa'] = new Date();
           }
         }
@@ -575,7 +607,9 @@ export class ProyectoService {
               // @ts-ignore
               observaciones: productoDto.observaciones || '',
               // @ts-ignore - Si esActualizacion es true, usar ACTUALIZACION, sino COTIZACION
-              actividad: productoDto.esActualizacion ? 'ACTUALIZACION' : 'COTIZACION',
+              actividad: productoDto.esActualizacion
+                ? 'ACTUALIZACION'
+                : 'COTIZACION',
               estado: 'PENDIENTE', // Estado automático para nuevos registros
               // @ts-ignore
               fechaAproxEnvio: productoDto.fechaAproxEnvio || null,
