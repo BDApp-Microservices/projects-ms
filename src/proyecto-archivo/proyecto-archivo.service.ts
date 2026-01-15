@@ -114,6 +114,33 @@ export class ProyectoArchivoService {
   }
 
   /**
+   * Obtiene archivos de un proyecto filtrados por tipo con URLs firmadas
+   */
+  async findByProyectoAndTipo(
+    idProyecto: string,
+    tipoArchivo: string,
+  ): Promise<(ProyectoArchivo & { signedUrl: string })[]> {
+    const archivos = await this.proyectoArchivoRepository
+      .createQueryBuilder('archivo')
+      .where('archivo.id_proyecto = :idProyecto', { idProyecto })
+      .andWhere('archivo.tipo_archivo = :tipoArchivo', { tipoArchivo })
+      .orderBy('archivo.fecha_creacion', 'DESC')
+      .getMany();
+
+    const archivosConUrl = await Promise.all(
+      archivos.map(async (archivo) => {
+        const signedUrl = await this.gcsStorageService.getSignedUrl(
+          archivo.archivoUrl,
+          60,
+        );
+        return { ...archivo, signedUrl };
+      }),
+    );
+
+    return archivosConUrl;
+  }
+
+  /**
    * Actualiza un archivo de proyecto
    */
   async update(

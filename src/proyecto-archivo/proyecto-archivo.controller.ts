@@ -53,4 +53,14 @@ export class ProyectoArchivoController {
   getSignedUrl(@Payload() id: string) {
     return this.proyectoArchivoService.getSignedUrl(id);
   }
+
+  @MessagePattern('findProyectoArchivoByProyectoAndTipo')
+  findByProyectoAndTipo(
+    @Payload() payload: { idProyecto: string; tipoArchivo: string },
+  ) {
+    return this.proyectoArchivoService.findByProyectoAndTipo(
+      payload.idProyecto,
+      payload.tipoArchivo,
+    );
+  }
 }
