@@ -3,7 +3,6 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { ClientProxy, RpcException } from '@nestjs/microservices';
 import { firstValueFrom } from 'rxjs';
-import { CreateProyectoDto } from './dto/create-proyecto.dto';
 import { UpdateProyectoDto } from './dto/update-proyecto.dto';
 import { CreateProyectoCompletoDto } from './dto/create-proyecto-completo.dto';
 import { Proyecto } from './entities/proyecto.entity';
@@ -23,7 +22,7 @@ export class ProyectoService {
     private clienteService: ClienteService,
     private auditoriaProyectoService: AuditoriaProyectoService,
     @Inject(NATS_SERVICE) private readonly clientDispatch: ClientProxy,
-  ) {}
+  ) { }
 
   async findAll(): Promise<BaseResponseDto<Proyecto[]>> {
     try {
@@ -50,7 +49,7 @@ export class ProyectoService {
     try {
       const proyectos = await this.proyectoRepo.find({
         where: { estado: 'CERRADO' },
-        relations: ['idCliente'],
+        relations: ['idCliente', 'proyectoProductos'],
         order: { fechaCreacion: 'DESC' },
       });
 
