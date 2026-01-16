@@ -7,7 +7,6 @@ import {
   OneToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
-  OneToOne,
 } from 'typeorm';
 import { AsesoriaTecnica } from 'src/asesoria-tecnica/entities/asesoria-tecnica.entity';
 import { Cliente } from 'src/cliente/entities/cliente.entity';

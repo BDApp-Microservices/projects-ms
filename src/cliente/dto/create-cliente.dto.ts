@@ -1,4 +1,5 @@
-import { IsOptional, IsString, IsBoolean, IsNotEmpty } from "class-validator";
+import { IsOptional, IsString, IsBoolean, IsNotEmpty, IsEnum } from "class-validator";
+import { TipoClienteProyecto } from "src/common/enums/cliente.enum";
 
 
 export class CreateClienteDto {
@@ -16,7 +17,8 @@ export class CreateClienteDto {
 
     @IsString()
     @IsOptional()
-    tipo?: string;
+    @IsEnum(TipoClienteProyecto)
+    tipo?: TipoClienteProyecto;
 
     @IsString()
     @IsOptional()

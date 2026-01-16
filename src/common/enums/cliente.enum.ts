@@ -1,0 +1,7 @@
+export enum TipoClienteProyecto {
+    EN_EJECUCION = 'EN_EJECUCION',
+    LICITACION = 'LICITACION',
+    GANADO = 'GANADO',
+    PROPIO = 'PROPIO',
+    COLABORATIVO = 'COLABORATIVO',
+}

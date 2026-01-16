@@ -27,7 +27,7 @@ export class ProyectoService {
   async findAll(): Promise<BaseResponseDto<Proyecto[]>> {
     try {
       const proyectos = await this.proyectoRepo.find({
-        relations: ['idCliente'],
+        relations: ['idCliente', 'proyectoProductos'],
         order: { fechaCreacion: 'DESC' },
       });
 
@@ -466,15 +466,28 @@ export class ProyectoService {
           }
         }
 
-        // 5. Detectar cambio de estado a CERRADO -> establecer fechaCierre
+        // 5. Detectar cambio de estado a CERRADO -> establecer fechaCierre y estadoCerrado automáticamente
         if (estadoNuevo === 'CERRADO' && estadoAnterior !== 'CERRADO') {
           updateData['fechaCierre'] = new Date();
+          updateData['estadoCerrado'] = 'CERRADO'; // Estado cerrado inicial automático
         }
 
-        // 6. Actualizar datos del proyecto
+        // 6. Validar que estadoCerrado y fechaInicioDespacho solo se modifiquen si estado es CERRADO
+        const estadoFinal = estadoNuevo || estadoAnterior;
+        if (estadoFinal !== 'CERRADO') {
+          // Si el proyecto no está cerrado, eliminar estos campos del update si fueron enviados
+          if (updateData['estadoCerrado'] !== undefined) {
+            delete updateData['estadoCerrado'];
+          }
+          if (updateData['fechaInicioDespacho'] !== undefined) {
+            delete updateData['fechaInicioDespacho'];
+          }
+        }
+
+        // 7. Actualizar datos del proyecto
         await manager.update(Proyecto, id, updateData);
 
-        // 7. Obtener proyecto actualizado
+        // 8. Obtener proyecto actualizado
         const proyectoActualizado = await manager.findOne(Proyecto, {
           where: { idProyecto: id },
         });
