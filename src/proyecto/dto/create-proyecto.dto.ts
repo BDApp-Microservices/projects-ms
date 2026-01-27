@@ -5,6 +5,10 @@ export class CreateProyectoDto {
 
     @IsString()
     @IsOptional()
+    tipo?: string;
+
+    @IsString()
+    @IsOptional()
     proyectoCUP?: string;
 
     @IsString()

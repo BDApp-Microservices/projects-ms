@@ -25,9 +25,7 @@ export class ClienteNuevoDto {
     @IsOptional()
     ruc?: string;
 
-    @IsString()
-    @IsOptional()
-    tipo?: string;
+
 
     @IsString()
     @IsOptional()

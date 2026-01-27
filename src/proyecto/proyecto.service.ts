@@ -209,7 +209,7 @@ export class ProyectoService {
             razonSocial: createDto.clienteNuevo.razonSocial || '',
             nombreComercial: createDto.clienteNuevo.nombreComercial,
             ruc: createDto.clienteNuevo.ruc,
-            tipo: createDto.clienteNuevo.tipo || '',
+            // tipo eliminado de cliente
             credito: createDto.clienteNuevo.credito || '',
             condicion: createDto.clienteNuevo.condicion || '',
             datos: createDto.clienteNuevo.datos || '',
@@ -304,6 +304,7 @@ export class ProyectoService {
           suf: createDto.proyecto.suf,
           codigo: createDto.proyecto.codigo,
           anio: createDto.proyecto.anio,
+          tipo: createDto.proyecto.tipo, // Nuevo campo
           fechaTentativa: createDto.proyecto.fechaTentativa,
           estaActivo: false, // Siempre false para proyectos nuevos
           pisos: createDto.proyecto.pisos,

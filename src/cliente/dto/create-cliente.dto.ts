@@ -17,11 +17,6 @@ export class CreateClienteDto {
 
     @IsString()
     @IsOptional()
-    @IsEnum(TipoClienteProyecto)
-    tipo?: TipoClienteProyecto;
-
-    @IsString()
-    @IsOptional()
     credito?: string;
 
     @IsString()

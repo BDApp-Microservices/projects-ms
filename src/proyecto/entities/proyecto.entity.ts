@@ -35,6 +35,9 @@ export class Proyecto {
   @Column('int', { name: 'anio' })
   anio: number;
 
+  @Column('varchar', { name: 'tipo', length: 50, nullable: true })
+  tipo: string;
+
   @Column('date', { name: 'fecha_tentativa' })
   fechaTentativa: Date;
 

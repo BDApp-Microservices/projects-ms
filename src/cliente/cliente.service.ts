@@ -56,7 +56,6 @@ export class ClienteService {
   async findOrCreate(data: {
     razonSocial: string;
     ruc?: string;
-    tipo?: string;
     credito?: string;
     condicion?: string;
     datos?: string;
@@ -73,9 +72,8 @@ export class ClienteService {
       cliente = this.clienteRepo.create({
         razonSocial: data.razonSocial,
         ruc: data.ruc || undefined,
-        tipo: data.tipo || 'GENERAL',
-        credito: data.credito || 'CONTADO',
-        condicion: data.condicion || 'HABILITADO',
+        credito: data.credito || '',
+        condicion: data.condicion || '',
         datos: data.datos || '',
         estaActivo: false,
         tipoCliente: 'NUEVO',

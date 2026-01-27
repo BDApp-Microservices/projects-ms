@@ -15,9 +15,6 @@ export class Cliente {
     @Column('varchar', { name: 'nombre_comercial', length: 100 })
     nombreComercial: string;
 
-    @Column('varchar', { name: 'tipo', length: 50, nullable: true })
-    tipo: string;
-
     @Column('varchar', { name: 'credito', length: 50, nullable: true })
     credito: string;
 
