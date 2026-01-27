@@ -33,6 +33,10 @@ export class Cliente {
     @Column('varchar', { name: 'tipo_cliente', length: 20, default: 'ANTIGUO' })
     tipoCliente: string; // 'NUEVO' o 'ANTIGUO'
 
+    // Numero de cliente - Campo especial para calcular el CUP
+    @Column('int', { name: 'numero_cliente' })
+    numeroCliente: number;
+
     // Relaciones
 
     // Proyectos asociados al cliente

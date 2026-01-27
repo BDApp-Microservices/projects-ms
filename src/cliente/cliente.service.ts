@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { HttpStatus, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { RpcException } from '@nestjs/microservices';
@@ -106,7 +106,7 @@ export class ClienteService {
       if (existeRazonSocial) {
         throw new RpcException({
           message: 'Ya existe un cliente con esta razón social',
-          statusCode: 409,
+          statusCode: HttpStatus.CONFLICT,
         });
       }
 
@@ -119,37 +119,33 @@ export class ClienteService {
         if (existeRuc) {
           throw new RpcException({
             message: 'Ya existe un cliente con este RUC',
-            statusCode: 409,
+            statusCode: HttpStatus.CONFLICT,
           });
         }
       }
 
-      // Validar que no exista cliente con el mismo nombre comercial (si se proporciona)
-      if (createClienteDto.nombreComercial) {
-        const existeNombreComercial = await this.clienteRepo.findOne({
-          where: { nombreComercial: createClienteDto.nombreComercial },
-        });
+      // Calcular siguiente numeroCliente de forma global
+      const maxClienteResult = await this.clienteRepo
+        .createQueryBuilder('c')
+        .select('MAX(c.numeroCliente)', 'max')
+        .getRawOne();
 
-        if (existeNombreComercial) {
-          throw new RpcException({
-            message: 'Ya existe un cliente con este nombre comercial',
-            statusCode: 409,
-          });
-        }
-      }
+      const maxNumeroCliente = maxClienteResult && maxClienteResult.max ? parseInt(maxClienteResult.max, 10) : 0;
+      const nextNumeroCliente = maxNumeroCliente + 1;
 
       // Crear el nuevo cliente
       const nuevoCliente = this.clienteRepo.create({
         ...createClienteDto,
         estaActivo: createClienteDto.estaActivo ?? false,
         tipoCliente: createClienteDto.tipoCliente || 'NUEVO',
+        numeroCliente: nextNumeroCliente,
       });
 
       const clienteGuardado = await this.clienteRepo.save(nuevoCliente);
 
       return {
         success: true,
-        statusCode: 201,
+        statusCode: HttpStatus.CREATED,
         message: 'Cliente creado exitosamente',
         data: clienteGuardado,
       };
@@ -159,7 +155,7 @@ export class ClienteService {
       }
       throw new RpcException({
         message: 'Error al crear cliente',
-        statusCode: 500,
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
         error: error.message,
       });
     }

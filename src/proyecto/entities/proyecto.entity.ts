@@ -103,6 +103,10 @@ export class Proyecto {
   @Column('date', { name: 'fecha_inicio_despacho', nullable: true })
   fechaInicioDespacho: Date;
 
+  // Numero de proyecto por cliente - Campo especial para calcular el CUP
+  @Column('int', { name: 'numero_proyecto_cliente' })
+  numeroProyectoCliente: number;
+
   // Relaciones
 
   // Ingeniero responsable - Relacion logica

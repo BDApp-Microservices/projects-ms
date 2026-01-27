@@ -189,19 +189,24 @@ export class ProyectoService {
             );
 
           if (clienteExistente) {
-            // Si existe, y es exactamente el mismo, podríamos reusarlo, pero la lógica pide validar duplicados.
-            // Sin embargo, si razonSocial es opcional, el nombre comercial es la clave principal.
             throw new RpcException({
               message: `El cliente con nombre comercial "${createDto.clienteNuevo.nombreComercial}" ya existe`,
               statusCode: HttpStatus.CONFLICT,
             });
           }
 
+          // Calcular siguiente numeroCliente de forma global
+          const maxClienteResult = await manager
+            .createQueryBuilder(Cliente, 'c')
+            .select('MAX(c.numeroCliente)', 'max')
+            .getRawOne();
+
+          const maxNumeroCliente = maxClienteResult && maxClienteResult.max ? parseInt(maxClienteResult.max, 10) : 0;
+          const nextNumeroCliente = maxNumeroCliente + 1;
+
           // Crear nuevo cliente
-          // SI no viene razonSocial, usamos nombreComercial para ambos campos (o dejamos razonSocial null si la BD lo permite, pero es mejor tener algo).
-          // El usuario pidió que razonSocial sea opcional.
           const nuevoCliente = manager.create(Cliente, {
-            razonSocial: createDto.clienteNuevo.razonSocial || '', // Fallback a nombre comercial si no hay razón social
+            razonSocial: createDto.clienteNuevo.razonSocial || '',
             nombreComercial: createDto.clienteNuevo.nombreComercial,
             ruc: createDto.clienteNuevo.ruc,
             tipo: createDto.clienteNuevo.tipo || '',
@@ -210,6 +215,7 @@ export class ProyectoService {
             datos: createDto.clienteNuevo.datos || '',
             estaActivo: false,
             tipoCliente: 'NUEVO',
+            numeroCliente: nextNumeroCliente,
           });
 
           const clienteGuardado = await manager.save(Cliente, nuevoCliente);
@@ -238,7 +244,61 @@ export class ProyectoService {
           idCliente = createDto.idClienteExistente;
         }
 
-        // 2. Crear proyecto
+        // 2. Preparar o calcular datos para el proyecto y CUP
+
+        // Obtener numeroCliente para generar el CUP
+        let numeroClienteForCUP: number;
+        if (createDto.esProyectoNuevo) {
+          // Lo acabamos de crear y asignar
+          // Recuperarlo del manager si es necesario, pero ya lo calculamos: nextNumeroCliente
+          // Pero ojo, createDto.esProyectoNuevo implica cliente nuevo EN ESTE CONTEXTO DE CODIGO (linea 173).
+          // Sin embargo, necesito la variable disponible aca. 
+          // Re-obtendré el cliente recién guardado o usaré el valor calculado.
+          // Mejor consulto el cliente de la BD para estar seguro o uso una variable scopeda.
+          const clienteRecienCreado = await manager.findOne(Cliente, { where: { idCliente } });
+          if (!clienteRecienCreado) {
+            throw new RpcException({
+              message: 'Error al recuperar el cliente recién creado',
+              statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+            });
+          }
+          numeroClienteForCUP = clienteRecienCreado.numeroCliente;
+        } else {
+          const clienteExistente = await manager.findOne(Cliente, { where: { idCliente } });
+          if (!clienteExistente) {
+            throw new RpcException({
+              message: 'Error al recuperar el cliente existente',
+              statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+            });
+          }
+          numeroClienteForCUP = clienteExistente.numeroCliente || 0;
+        }
+
+        // Calcular numeroProyectoCliente
+        // Buscar el máximo numeroProyectoCliente para este cliente en el año especifico
+        const anioProyecto = createDto.proyecto.anio;
+
+        const maxProyectoResult = await manager
+          .createQueryBuilder(Proyecto, 'p')
+          .select('MAX(p.numeroProyectoCliente)', 'max')
+          .where('p.idCliente = :idCliente', { idCliente })
+          .andWhere('p.anio = :anio', { anio: anioProyecto })
+          .getRawOne();
+
+        const maxNumeroProyecto = maxProyectoResult && maxProyectoResult.max ? parseInt(maxProyectoResult.max, 10) : 0;
+        const nextNumeroProyecto = maxNumeroProyecto + 1;
+
+        // Generar CUP: AA + CCCC + PP
+        // AA: Dos ultimos digitos del anio
+        const aa = anioProyecto.toString().slice(-2);
+        // CCCC: Numero cliente (4 digitos)
+        const cccc = numeroClienteForCUP.toString().padStart(4, '0');
+        // PP: Numero proyecto (2 digitos)
+        const pp = nextNumeroProyecto.toString().padStart(2, '0');
+
+        const generadoCUP = `${aa}${cccc}${pp}`;
+
+        // Crear proyecto con los datos calculados
         const proyectoData: any = {
           nombre: createDto.proyecto.nombre,
           suf: createDto.proyecto.suf,
@@ -256,16 +316,10 @@ export class ProyectoService {
           correoContacto: createDto.proyecto.correoContacto,
           estado: createDto.proyecto.estado,
           idComercial: createDto.proyecto.idComercial,
-          idCliente: idCliente, // Solo el UUID, no el objeto
+          idCliente: idCliente,
+          numeroProyectoCliente: nextNumeroProyecto,
+          proyectoCUP: generadoCUP,
         };
-
-        // Solo agregar proyectoCUP si tiene valor
-        if (
-          createDto.proyecto.proyectoCUP &&
-          createDto.proyecto.proyectoCUP.trim() !== ''
-        ) {
-          proyectoData.proyectoCUP = createDto.proyecto.proyectoCUP;
-        }
 
         const nuevoProyecto = manager.create(Proyecto, proyectoData);
 
